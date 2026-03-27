@@ -1,7 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+env/
+
 # Data
-data/raw/
-data/processed/
+data/raw/*
+data/processed/*
 
 # Keep folder structure
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Logs
+logs/
+
+# Models
+saved_models/*.pkl
+saved_models/*.joblib
+
+# Environment variables
+.env
+
+# OS files
+.DS_Store

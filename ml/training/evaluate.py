@@ -1,15 +1,4 @@
-"""
-Offline model evaluation utilities.
-
-This module is used for:
-- threshold tuning
-- confusion matrix
-- classification report
-- ROC-AUC / PR-AUC calculation
-
-This file is for training/evaluation workflows only.
-It should not be called directly by the API for inference.
-"""
+"""Offline model evaluation — threshold tuning, confusion matrix, classification report."""
 
 from __future__ import annotations
 
@@ -35,25 +24,12 @@ def find_best_threshold(
     recall_tolerance: float = 0.02,
 ) -> Tuple[float, Dict[str, float]]:
     """
-    Find the best threshold while prioritizing recall, but avoiding
-    unnecessarily low precision.
+    Find the best threshold balancing precision and recall.
 
-    Strategy:
-    - Keep only thresholds with precision >= min_precision.
-    - Find the maximum recall among them.
-    - Keep thresholds within recall_tolerance of that max recall.
-    - Among those, choose the one with highest precision.
-    - If still tied, choose higher F1.
-    - If no threshold satisfies min_precision, fall back to best F1 overall.
-
-    Args:
-        y_true: True binary labels.
-        y_probs: Predicted probabilities for the positive class.
-        min_precision: Minimum acceptable precision.
-        recall_tolerance: Allowed drop from best recall.
-
-    Returns:
-        Tuple of (best threshold, metrics dict).
+    Keeps only thresholds with precision >= min_precision, picks
+    the one with highest recall (within tolerance), then breaks ties
+    by precision and F1. Falls back to best F1 overall if nothing
+    meets the precision floor.
     """
     thresholds = np.arange(0.05, 0.96, 0.05)
     candidates = []
@@ -110,20 +86,10 @@ def evaluate_at_threshold(
     y_probs: np.ndarray,
     threshold: float,
 ) -> Dict[str, object]:
-    """
-    Evaluate model predictions at a chosen threshold.
-
-    Args:
-        y_true: True labels.
-        y_probs: Predicted fraud probabilities.
-        threshold: Probability cutoff for classifying as fraud.
-
-    Returns:
-        Dictionary containing evaluation metrics and reports.
-    """
+    """Evaluate predictions at a given threshold. Returns a dict of metrics."""
     y_pred = (y_probs >= threshold).astype(int)
 
-    results = {
+    return {
         "threshold": float(threshold),
         "roc_auc": roc_auc_score(y_true, y_probs),
         "pr_auc": average_precision_score(y_true, y_probs),
@@ -133,7 +99,6 @@ def evaluate_at_threshold(
         "recall": recall_score(y_true, y_pred, zero_division=0),
         "f1": f1_score(y_true, y_pred, zero_division=0),
     }
-    return results
 
 
 def compare_thresholds(
@@ -141,17 +106,7 @@ def compare_thresholds(
     y_probs: np.ndarray,
     thresholds: list[float],
 ) -> pd.DataFrame:
-    """
-    Compare multiple thresholds side by side.
-
-    Args:
-        y_true: True labels.
-        y_probs: Predicted probabilities.
-        thresholds: List of thresholds to compare.
-
-    Returns:
-        DataFrame with precision, recall, and F1 for each threshold.
-    """
+    """Compare precision/recall/F1 across multiple thresholds."""
     rows = []
 
     for threshold in thresholds:

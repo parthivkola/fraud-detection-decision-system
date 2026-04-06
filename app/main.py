@@ -2,6 +2,7 @@
 FastAPI application entry point.
 
 Loads ML artifacts (model, scaler, metadata) at startup via lifespan.
+Creates database tables if they don't exist.
 Includes the fraud router. Auth and DB routers can be added later.
 """
 
@@ -20,7 +21,22 @@ from ml.utils import load_artifact, load_json
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load ML artifacts once at startup, clean up on shutdown."""
+    """Load ML artifacts and create DB tables at startup."""
+
+    # ---- Database tables ----
+    # Import here (not at top) to avoid circular imports.
+    # Base.metadata.create_all() looks at every model that inherits from
+    # Base (PredictionBatch, PredictionResult) and creates the
+    # corresponding tables in PostgreSQL.  If the tables already exist,
+    # this is a no-op — safe to run every time.
+    from app.database import engine
+    from app.models import Base  # noqa: F401  (ensures models are registered)
+
+    logger.info("Creating database tables (if they don't exist)...")
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables ready.")
+
+    # ---- ML artifacts ----
     logger.info("Loading ML artifacts...")
 
     # Load model + scaler

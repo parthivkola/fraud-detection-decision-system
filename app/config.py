@@ -25,13 +25,13 @@ class Settings(BaseSettings):
     SCALER_PATH: str = os.path.join("saved_models", "amount_scaler.joblib")
     METADATA_PATH: str = os.path.join("saved_models", "model_metadata.json")
 
+    # --- Database ---
+    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/fraud_detection"
+
     # --- Future: Auth ---
     # SECRET_KEY: str = "changeme"
     # ALGORITHM: str = "HS256"
     # ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-
-    # --- Future: Database ---
-    # DATABASE_URL: str = "sqlite:///./fraud.db"
 
     class Config:
         env_file = ".env"

@@ -18,6 +18,10 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/fraud_detection"
 
+    LOG_LEVEL: str = "INFO"
+    LOG_DIR: str = "logs"
+    LOG_FILE: str = "app.log"
+
     # SECRET_KEY: str = "changeme"
     # ALGORITHM: str = "HS256"
     # ACCESS_TOKEN_EXPIRE_MINUTES: int = 30

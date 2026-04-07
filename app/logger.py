@@ -3,15 +3,17 @@ from __future__ import annotations
 import logging
 import os
 
-LOG_DIR = "logs"
-LOG_FILE = os.path.join(LOG_DIR, "app.log")
+from app.config import settings
+
+LOG_DIR = settings.LOG_DIR
+LOG_FILE = os.path.join(LOG_DIR, settings.LOG_FILE)
 
 
 def setup_logger(name: str = "fraud_api") -> logging.Logger:
     os.makedirs(LOG_DIR, exist_ok=True)
 
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
 
     # Avoid duplicate handlers on reload
     if logger.handlers:

@@ -448,13 +448,13 @@ function generateSampleCSV() {
     URL.revokeObjectURL(url);
 }
 
-// Inject sample download link into upload zone
+// Inject sample download link AFTER (outside) the upload zone
 const sampleLink = document.createElement("a");
 sampleLink.href = "#";
 sampleLink.className = "sample-link";
 sampleLink.textContent = "⬇ Download sample CSV to test";
-sampleLink.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); generateSampleCSV(); });
-uploadZone.appendChild(sampleLink);
+sampleLink.addEventListener("click", (e) => { e.preventDefault(); generateSampleCSV(); });
+uploadZone.parentNode.insertBefore(sampleLink, uploadZone.nextSibling);
 
 // ── Auto-login if token exists ───────────────────────────────────
 if (token) {

@@ -363,13 +363,13 @@ body {
 }
 
 .sample-link {
-    display: inline-block;
-    margin-top: 1rem;
+    display: block;
+    text-align: center;
+    margin-top: 0.75rem;
     color: var(--accent);
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     text-decoration: none;
-    border-bottom: 1px dashed var(--accent);
-    padding-bottom: 1px;
+    padding: 0.5rem;
     transition: var(--transition);
 }
 

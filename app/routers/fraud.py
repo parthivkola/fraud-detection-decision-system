@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import io
+import random
 from collections import Counter
-from typing import List
+from typing import List, Optional
 
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.crud import (
     create_prediction_batch,
     create_prediction_results,
@@ -16,6 +18,7 @@ from app.crud import (
 )
 from app.database import get_db
 from app.logger import logger
+from app.models import User
 from app.risk import assess_risk
 from app.schemas import (
     PredictionBatchOut,
@@ -31,11 +34,37 @@ router = APIRouter(prefix="/api/v1/fraud", tags=["fraud"])
 REQUIRED_FEATURES = [f"V{i}" for i in range(1, 29)] + ["Amount"]
 
 
+def _select_model(request: Request):
+    """Select a model for inference.
+
+    If multiple active model versions have been loaded (A/B test), a weighted
+    random selection picks one per request.  Falls back to the default
+    single-model loaded at startup.
+    """
+    loaded_versions = getattr(request.app.state, "loaded_versions", None)
+    if loaded_versions and len(loaded_versions) > 0:
+        tags = list(loaded_versions.keys())
+        weights = [loaded_versions[t]["ab_weight"] for t in tags]
+        chosen_tag = random.choices(tags, weights=weights, k=1)[0]
+        v = loaded_versions[chosen_tag]
+        return v["model"], v["scaler"], v["threshold"], v["version_id"], chosen_tag
+
+    # Fallback: single model loaded at startup
+    return (
+        request.app.state.model,
+        request.app.state.scaler,
+        request.app.state.threshold,
+        None,
+        None,
+    )
+
+
 @router.post("/predict", response_model=PredictionResponse)
 async def predict_fraud(
     request: Request,
     file: UploadFile = File(..., description="CSV file with transaction data"),
     db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ):
     """
     Upload a CSV of transactions and get fraud predictions.
@@ -72,9 +101,7 @@ async def predict_fraud(
 
     df = df[REQUIRED_FEATURES]
 
-    model = request.app.state.model
-    scaler = request.app.state.scaler
-    threshold = request.app.state.threshold
+    model, scaler, threshold, version_id, version_tag = _select_model(request)
 
     try:
         df_transformed = transform_new_data(df, scaler)
@@ -88,8 +115,8 @@ async def predict_fraud(
         logger.error(f"Model prediction failed: {e}")
         raise HTTPException(status_code=500, detail=f"Prediction error: {e}")
 
-    predictions = []
-    prediction_dicts = []
+    predictions: List[TransactionPrediction] = []
+    prediction_dicts: List[dict] = []
 
     for idx, prob in enumerate(probabilities):
         prob_float = float(prob)
@@ -122,6 +149,7 @@ async def predict_fraud(
         total_transactions=len(predictions),
         flagged_fraud=flagged,
         threshold_used=threshold,
+        model_version_id=version_id,
     )
     create_prediction_results(
         db=db,
@@ -132,11 +160,13 @@ async def predict_fraud(
     logger.info(
         f"Prediction complete: {len(predictions)} txns, "
         f"{flagged} flagged, batch_id={batch.id}, "
+        f"model={version_tag or 'default'}, "
         f"risk distribution: {risk_counts}"
     )
 
     return PredictionResponse(
         batch_id=batch.id,
+        model_version=version_tag,
         predictions=predictions,
         summary=PredictionSummary(
             total_transactions=len(predictions),
@@ -156,6 +186,7 @@ def list_prediction_history(
     skip: int = Query(0, ge=0, description="Number of batches to skip"),
     limit: int = Query(20, ge=1, le=100, description="Max batches to return"),
     db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ):
     """List recent prediction batches (newest first), without individual results."""
     return get_prediction_batches(db, skip=skip, limit=limit)
@@ -169,6 +200,7 @@ def list_prediction_history(
 def get_prediction_detail(
     batch_id: int,
     db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ):
     """Retrieve a prediction batch and all its results. Returns 404 if not found."""
     batch = get_prediction_batch(db, batch_id=batch_id)

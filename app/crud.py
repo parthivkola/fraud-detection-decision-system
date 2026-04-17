@@ -13,13 +13,19 @@ def create_prediction_batch(
     total_transactions: int,
     flagged_fraud: int,
     threshold_used: float,
+    model_version_id: Optional[int] = None,
 ) -> PredictionBatch:
     """Insert a new prediction batch and return it with generated fields populated."""
-    logger.info(f"Creating prediction batch: total_transactions={total_transactions}, flagged_fraud={flagged_fraud}, threshold={threshold_used}")
+    logger.info(
+        f"Creating prediction batch: total_transactions={total_transactions}, "
+        f"flagged_fraud={flagged_fraud}, threshold={threshold_used}, "
+        f"model_version_id={model_version_id}"
+    )
     batch = PredictionBatch(
         total_transactions=total_transactions,
         flagged_fraud=flagged_fraud,
         threshold_used=threshold_used,
+        model_version_id=model_version_id,
     )
     db.add(batch)
     db.commit()

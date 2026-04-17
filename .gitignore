@@ -31,3 +31,7 @@ saved_models/*.joblib
 
 # OS files
 .DS_Store
+
+# Test databases
+*.db
+test.db

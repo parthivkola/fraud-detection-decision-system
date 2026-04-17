@@ -10,10 +10,60 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    Text,
 )
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+
+
+class User(Base):
+    """Application user with role-based access (analyst / admin)."""
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    email = Column(String(120), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    role = Column(String(20), nullable=False, default="analyst")  # analyst | admin
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return f"<User id={self.id} username={self.username} role={self.role}>"
+
+
+class ModelVersion(Base):
+    """Registered ML model version. Supports A/B testing via ab_weight."""
+
+    __tablename__ = "model_versions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    version_tag = Column(String(50), unique=True, nullable=False)    # e.g. "v1.0"
+    description = Column(Text, nullable=True)
+    file_path = Column(String(255), nullable=False)                  # path to .joblib
+    scaler_path = Column(String(255), nullable=False)
+    metadata_path = Column(String(255), nullable=False)
+    is_active = Column(Boolean, nullable=False, default=False)
+    ab_weight = Column(Float, nullable=False, default=1.0)           # 0.0 – 1.0
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    batches = relationship("PredictionBatch", back_populates="model_version")
+
+    def __repr__(self) -> str:
+        return (
+            f"<ModelVersion id={self.id} tag={self.version_tag} "
+            f"active={self.is_active} weight={self.ab_weight}>"
+        )
 
 
 class PredictionBatch(Base):
@@ -31,6 +81,14 @@ class PredictionBatch(Base):
     flagged_fraud = Column(Integer, nullable=False)
     threshold_used = Column(Float, nullable=False)
 
+    model_version_id = Column(
+        Integer,
+        ForeignKey("model_versions.id"),
+        nullable=True,
+        index=True,
+    )
+
+    model_version = relationship("ModelVersion", back_populates="batches")
     results = relationship("PredictionResult", back_populates="batch")
 
     def __repr__(self) -> str:

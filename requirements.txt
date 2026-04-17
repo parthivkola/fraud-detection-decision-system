@@ -62,3 +62,20 @@ typing_extensions==4.15.0
 uvicorn==0.42.0
 wcwidth==0.6.0
 xgboost==3.2.0
+
+# Auth
+python-jose[cryptography]
+passlib[bcrypt]
+
+# Structured logging
+python-json-logger
+
+# Database migrations
+alembic
+
+# Testing
+pytest
+httpx
+
+# Pydantic email validation
+email-validator

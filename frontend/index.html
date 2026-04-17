@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraud Detection Dashboard</title>
+    <meta name="description" content="Real-time credit card fraud detection powered by XGBoost">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- ── Auth Screen ────────────────────────────────────────────── -->
+<div id="auth-screen" class="screen active">
+    <div class="auth-container">
+        <div class="auth-brand">
+            <div class="brand-icon">🛡️</div>
+            <h1>FraudGuard</h1>
+            <p class="subtitle">AI-Powered Fraud Detection System</p>
+        </div>
+        <div class="auth-card glass">
+            <div class="auth-tabs">
+                <button class="tab-btn active" data-tab="login">Login</button>
+                <button class="tab-btn" data-tab="register">Register</button>
+            </div>
+
+            <form id="login-form" class="auth-form">
+                <div class="form-group">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" placeholder="admin" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" placeholder="admin123" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+            </form>
+
+            <form id="register-form" class="auth-form hidden">
+                <div class="form-group">
+                    <label for="reg-username">Username</label>
+                    <input type="text" id="reg-username" required>
+                </div>
+                <div class="form-group">
+                    <label for="reg-email">Email</label>
+                    <input type="email" id="reg-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="reg-password">Password</label>
+                    <input type="password" id="reg-password" minlength="6" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+            </form>
+
+            <div id="auth-error" class="error-msg hidden"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Dashboard Screen ───────────────────────────────────────── -->
+<div id="dashboard-screen" class="screen">
+    <!-- Top Nav -->
+    <nav class="topnav glass">
+        <div class="nav-brand">
+            <span class="brand-icon-sm">🛡️</span>
+            <span class="brand-name">FraudGuard</span>
+        </div>
+        <div class="nav-tabs">
+            <button class="nav-btn active" data-section="predict">Predict</button>
+            <button class="nav-btn" data-section="history">History</button>
+            <button class="nav-btn" data-section="models">Models</button>
+            <button class="nav-btn admin-only" data-section="metrics">Metrics</button>
+        </div>
+        <div class="nav-user">
+            <span id="nav-username"></span>
+            <span id="nav-role" class="role-badge"></span>
+            <button id="logout-btn" class="btn btn-outline btn-sm">Logout</button>
+        </div>
+    </nav>
+
+    <main class="content">
+        <!-- ── Predict Section ──────────────────────────── -->
+        <section id="section-predict" class="section active">
+            <div class="section-header">
+                <h2>Fraud Prediction</h2>
+                <p>Upload a CSV with transaction data (V1–V28 + Amount)</p>
+            </div>
+
+            <div class="upload-zone glass" id="upload-zone">
+                <div class="upload-icon">📄</div>
+                <p>Drag & drop a CSV file here</p>
+                <p class="upload-hint">or click to browse</p>
+                <input type="file" id="csv-input" accept=".csv" hidden>
+            </div>
+
+            <div id="predict-loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Running predictions...</p>
+            </div>
+
+            <div id="predict-results" class="hidden">
+                <div class="stats-grid">
+                    <div class="stat-card glass">
+                        <div class="stat-label">Total Transactions</div>
+                        <div class="stat-value" id="stat-total">0</div>
+                    </div>
+                    <div class="stat-card glass stat-fraud">
+                        <div class="stat-label">Flagged as Fraud</div>
+                        <div class="stat-value" id="stat-flagged">0</div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-label">Threshold</div>
+                        <div class="stat-value" id="stat-threshold">0</div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-label">Model Version</div>
+                        <div class="stat-value" id="stat-model">default</div>
+                    </div>
+                </div>
+
+                <div class="risk-bars">
+                    <h3>Risk Distribution</h3>
+                    <div id="risk-chart" class="risk-chart"></div>
+                </div>
+
+                <div class="results-table-wrap glass">
+                    <h3>Predictions</h3>
+                    <div class="table-scroll">
+                        <table id="predictions-table">
+                            <thead>
+                                <tr>
+                                    <th>Row</th>
+                                    <th>Probability</th>
+                                    <th>Fraud?</th>
+                                    <th>Risk</th>
+                                    <th>Decision</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── History Section ──────────────────────────── -->
+        <section id="section-history" class="section">
+            <div class="section-header">
+                <h2>Prediction History</h2>
+                <p>Past prediction batches</p>
+            </div>
+            <div id="history-list" class="history-list"></div>
+            <div id="history-empty" class="empty-state hidden">
+                <p>No prediction history yet. Run a prediction first!</p>
+            </div>
+        </section>
+
+        <!-- ── Models Section ───────────────────────────── -->
+        <section id="section-models" class="section">
+            <div class="section-header">
+                <h2>Model Versions</h2>
+                <p>Registered ML model versions</p>
+            </div>
+            <div id="models-list" class="models-list"></div>
+            <div id="models-empty" class="empty-state hidden">
+                <p>No model versions registered yet.</p>
+            </div>
+        </section>
+
+        <!-- ── Metrics Section ──────────────────────────── -->
+        <section id="section-metrics" class="section">
+            <div class="section-header">
+                <h2>System Metrics</h2>
+                <p>Aggregate system statistics (admin only)</p>
+            </div>
+            <div id="metrics-content" class="stats-grid"></div>
+            <div id="metrics-denied" class="empty-state hidden">
+                <p>🔒 Admin access required to view metrics.</p>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

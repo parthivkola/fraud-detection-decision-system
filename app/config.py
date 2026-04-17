@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     # Default admin account (seeded on first startup)
     DEFAULT_ADMIN_USERNAME: str = "admin"
-    DEFAULT_ADMIN_EMAIL: str = "admin@fraudapi.local"
+    DEFAULT_ADMIN_EMAIL: str = "admin@fraudguard.example.com"
     DEFAULT_ADMIN_PASSWORD: str = "admin123"
 
 

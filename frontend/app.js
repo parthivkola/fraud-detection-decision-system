@@ -5,7 +5,7 @@
  * Talks to the FastAPI backend at API_BASE.
  */
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "";
 
 // ── State ────────────────────────────────────────────────────────
 let token = localStorage.getItem("fg_token") || null;

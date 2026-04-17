@@ -22,9 +22,8 @@ data/processed/*
 # Logs
 logs/
 
-# Models
+# Models (keep .pkl out, but allow .joblib since they're small)
 saved_models/*.pkl
-saved_models/*.joblib
 
 # Environment variables
 .env

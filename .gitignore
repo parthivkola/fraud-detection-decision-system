@@ -18,6 +18,7 @@ data/processed/*
 
 # Notebooks
 .ipynb_checkpoints/
+ml/notebooks/
 
 # Logs
 logs/

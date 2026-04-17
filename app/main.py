@@ -113,11 +113,13 @@ from app.routers.fraud import router as fraud_router       # noqa: E402
 from app.routers.users import router as users_router       # noqa: E402
 from app.routers.model import router as model_router       # noqa: E402
 from app.routers.metrics import router as metrics_router   # noqa: E402
+from app.routers.sample import router as sample_router     # noqa: E402
 
 app.include_router(fraud_router)
 app.include_router(users_router)
 app.include_router(model_router)
 app.include_router(metrics_router)
+app.include_router(sample_router)
 
 
 # ── Health endpoints ──────────────────────────────────────────────────────────

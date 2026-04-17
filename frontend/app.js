@@ -391,61 +391,14 @@ function formatUptime(seconds) {
 
 // ── Sample CSV download ──────────────────────────────────────────
 
-function generateSampleCSV() {
-    const headers = "V1 V2 V3 V4 V5 V6 V7 V8 V9 V10 V11 V12 V13 V14 V15 V16 V17 V18 V19 V20 V21 V22 V23 V24 V25 V26 V27 V28 Amount".split(" ");
-    const numRows = 9 + Math.floor(Math.random() * 7);  // 9-15 rows
-    const rows = [];
-
-    function randn() {
-        const u1 = Math.random(), u2 = Math.random();
-        return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-    }
-
-    for (let i = 0; i < numRows; i++) {
-        const isFraud = Math.random() < 0.33;  // ~1 in 3 rows are fraudulent
-        const row = [];
-
-        if (isFraud) {
-            // Fraud pattern: extreme values in key PCA components
-            // Based on real fraud patterns in the Kaggle dataset
-            row.push(parseFloat((-2 - Math.abs(randn()) * 3).toFixed(2)));   // V1: strongly negative
-            row.push(parseFloat((randn() * 2).toFixed(2)));                    // V2
-            row.push(parseFloat((-3 - Math.abs(randn()) * 2).toFixed(2)));   // V3: strongly negative
-            row.push(parseFloat((2 + Math.abs(randn()) * 2).toFixed(2)));    // V4: strongly positive
-            row.push(parseFloat((randn() * 1.5).toFixed(2)));                  // V5
-            row.push(parseFloat((randn() * 1.5).toFixed(2)));                  // V6
-            row.push(parseFloat((-2 - Math.abs(randn()) * 2).toFixed(2)));   // V7: negative
-            row.push(parseFloat((randn() * 1.5).toFixed(2)));                  // V8
-            row.push(parseFloat((randn() * 2).toFixed(2)));                    // V9
-            row.push(parseFloat((-3 - Math.abs(randn()) * 3).toFixed(2)));   // V10: strongly negative
-            row.push(parseFloat((2 + Math.abs(randn()) * 2).toFixed(2)));    // V11: strongly positive
-            row.push(parseFloat((-2 - Math.abs(randn()) * 2).toFixed(2)));   // V12: negative
-            row.push(parseFloat((randn() * 1.5).toFixed(2)));                  // V13
-            row.push(parseFloat((-5 - Math.abs(randn()) * 3).toFixed(2)));   // V14: very negative (key fraud signal)
-            for (let j = 14; j < 28; j++) {
-                row.push(parseFloat((randn() * 1.5).toFixed(2)));              // V15-V28
-            }
-            // Fraud amounts: either very small or very large
-            const amt = Math.random() < 0.5 ? (Math.random() * 5 + 0.5) : (500 + Math.random() * 2000);
-            row.push(parseFloat(amt.toFixed(2)));
-        } else {
-            // Legitimate: mild values centered around 0
-            for (let j = 0; j < 28; j++) {
-                row.push(parseFloat((randn() * 1.2).toFixed(2)));
-            }
-            row.push(parseFloat((Math.random() * 300 + 1).toFixed(2)));
-        }
-        rows.push(row);
-    }
-
-    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
+function downloadSampleCSV() {
+    // Hit the backend endpoint that returns real dataset rows
     const a = document.createElement("a");
-    a.href = url;
+    a.href = `${API_BASE}/api/v1/sample-csv`;
     a.download = "sample_transactions.csv";
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
 }
 
 // Inject sample download link AFTER (outside) the upload zone
@@ -453,7 +406,7 @@ const sampleLink = document.createElement("a");
 sampleLink.href = "#";
 sampleLink.className = "sample-link";
 sampleLink.textContent = "⬇ Download sample CSV to test";
-sampleLink.addEventListener("click", (e) => { e.preventDefault(); generateSampleCSV(); });
+sampleLink.addEventListener("click", (e) => { e.preventDefault(); downloadSampleCSV(); });
 uploadZone.parentNode.insertBefore(sampleLink, uploadZone.nextSibling);
 
 // ── Auto-login if token exists ───────────────────────────────────

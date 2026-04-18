@@ -7,6 +7,7 @@ from typing import Dict, Tuple
 import numpy as np
 import pandas as pd
 from sklearn.metrics import (
+    accuracy_score,
     average_precision_score,
     classification_report,
     confusion_matrix,
@@ -95,6 +96,7 @@ def evaluate_at_threshold(
         "pr_auc": average_precision_score(y_true, y_probs),
         "confusion_matrix": confusion_matrix(y_true, y_pred),
         "classification_report": classification_report(y_true, y_pred, zero_division=0),
+        "accuracy": accuracy_score(y_true, y_pred),
         "precision": precision_score(y_true, y_pred, zero_division=0),
         "recall": recall_score(y_true, y_pred, zero_division=0),
         "f1": f1_score(y_true, y_pred, zero_division=0),

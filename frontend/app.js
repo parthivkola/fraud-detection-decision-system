@@ -321,7 +321,7 @@ async function loadMetrics() {
     const contentEl = $("#metrics-content");
     const deniedEl = $("#metrics-denied");
 
-    if (currentUser?.role !== "admin") {
+    if (currentUser?.role !== "admin" && currentUser?.role !== "analyst") {
         contentEl.innerHTML = "";
         deniedEl.classList.remove("hidden");
         return;
@@ -330,14 +330,15 @@ async function loadMetrics() {
 
     try {
         const m = await api("/api/v1/metrics");
-        contentEl.innerHTML = `
+        
+        let html = `
             <div class="stat-card glass">
                 <div class="stat-label">Precision</div>
                 <div class="stat-value">${(m.model_precision * 100).toFixed(1)}%</div>
             </div>
             <div class="stat-card glass">
-                <div class="stat-label">Recall</div>
-                <div class="stat-value">${(m.model_recall * 100).toFixed(1)}%</div>
+                <div class="stat-label">Accuracy</div>
+                <div class="stat-value">${(m.model_accuracy * 100).toFixed(1)}%</div>
             </div>
             <div class="stat-card glass">
                 <div class="stat-label">F1 Score</div>
@@ -346,6 +347,21 @@ async function loadMetrics() {
             <div class="stat-card glass">
                 <div class="stat-label">ROC-AUC</div>
                 <div class="stat-value">${(m.model_roc_auc * 100).toFixed(1)}%</div>
+            </div>
+            <div class="stat-card glass">
+                <div class="stat-label">Threshold</div>
+                <div class="stat-value">${m.threshold}</div>
+            </div>
+            <div class="stat-card glass">
+                <div class="stat-label">Active Models</div>
+                <div class="stat-value">${m.active_model_versions.length ? m.active_model_versions.join(", ") : "default"}</div>
+            </div>`;
+
+        if (currentUser.role === "admin") {
+            html += `
+            <div class="stat-card glass">
+                <div class="stat-label">Recall</div>
+                <div class="stat-value">${(m.model_recall * 100).toFixed(1)}%</div>
             </div>
             <div class="stat-card glass">
                 <div class="stat-label">Total Predictions</div>
@@ -364,17 +380,12 @@ async function loadMetrics() {
                 <div class="stat-value">${m.flagged_legitimate}</div>
             </div>
             <div class="stat-card glass">
-                <div class="stat-label">Threshold</div>
-                <div class="stat-value">${m.threshold}</div>
-            </div>
-            <div class="stat-card glass">
-                <div class="stat-label">Active Models</div>
-                <div class="stat-value">${m.active_model_versions.length ? m.active_model_versions.join(", ") : "default"}</div>
-            </div>
-            <div class="stat-card glass">
                 <div class="stat-label">Uptime</div>
                 <div class="stat-value">${formatUptime(m.uptime_seconds)}</div>
             </div>`;
+        }
+
+        contentEl.innerHTML = html;
     } catch (err) {
         contentEl.innerHTML = `<div class="empty-state"><p>Failed to load metrics: ${err.message}</p></div>`;
     }

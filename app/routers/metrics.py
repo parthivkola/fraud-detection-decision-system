@@ -16,8 +16,8 @@ router = APIRouter(prefix="/api/v1", tags=["metrics"])
 
 
 def _load_model_metrics() -> dict:
-    """Load precision, recall, F1, ROC-AUC from model metadata file."""
-    defaults = {"precision": 0.0, "recall": 0.0, "f1": 0.0, "roc_auc": 0.0}
+    """Load precision, recall, F1, accuracy, ROC-AUC from model metadata file."""
+    defaults = {"precision": 0.0, "recall": 0.0, "f1": 0.0, "accuracy": 0.0, "roc_auc": 0.0}
     try:
         with open(settings.METADATA_PATH) as f:
             meta = json.load(f)
@@ -26,6 +26,7 @@ def _load_model_metrics() -> dict:
             "precision": round(test.get("precision", 0.0), 4),
             "recall": round(test.get("recall", 0.0), 4),
             "f1": round(test.get("f1", 0.0), 4),
+            "accuracy": round(test.get("accuracy", 0.0), 4),
             "roc_auc": round(test.get("roc_auc", 0.0), 4),
         }
     except Exception:
@@ -35,14 +36,14 @@ def _load_model_metrics() -> dict:
 @router.get(
     "/metrics",
     response_model=MetricsResponse,
-    summary="Get system metrics (admin only)",
+    summary="Get system metrics",
 )
 def get_metrics(
     request: Request,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_role("admin")),
+    _user: User = Depends(require_role("admin", "analyst")),
 ):
-    """Return aggregate system metrics. Requires admin role."""
+    """Return aggregate system metrics. Requires admin or analyst role."""
     import time
 
     # Counts
@@ -93,6 +94,7 @@ def get_metrics(
         flagged_fraud=flagged_fraud,
         flagged_legitimate=flagged_legitimate,
         fraud_flag_rate=round(fraud_flag_rate, 4),
+        model_accuracy=model_metrics["accuracy"],
         model_precision=model_metrics["precision"],
         model_recall=model_metrics["recall"],
         model_f1=model_metrics["f1"],

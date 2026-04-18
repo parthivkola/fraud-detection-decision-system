@@ -30,12 +30,12 @@ class TestMetrics:
         assert "risk_distribution" in data
         assert data["uptime_seconds"] >= 0
 
-    def test_metrics_requires_admin(self, client, analyst_token):
+    def test_metrics_allows_analyst(self, client, analyst_token):
         resp = client.get(
             "/api/v1/metrics",
             headers=auth_header(analyst_token),
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 200
 
     def test_metrics_requires_auth(self, client):
         resp = client.get("/api/v1/metrics")

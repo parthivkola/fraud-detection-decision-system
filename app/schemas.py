@@ -175,6 +175,7 @@ class MetricsResponse(BaseModel):
     fraud_flag_rate: float              # flagged / total
 
     # Model quality (from saved metadata)
+    model_accuracy: float
     model_precision: float
     model_recall: float
     model_f1: float

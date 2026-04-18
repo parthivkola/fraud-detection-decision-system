@@ -341,6 +341,10 @@ async function loadMetrics() {
                 <div class="stat-value">${(m.model_accuracy * 100).toFixed(1)}%</div>
             </div>
             <div class="stat-card glass">
+                <div class="stat-label">Recall</div>
+                <div class="stat-value">${(m.model_recall * 100).toFixed(1)}%</div>
+            </div>
+            <div class="stat-card glass">
                 <div class="stat-label">F1 Score</div>
                 <div class="stat-value">${(m.model_f1 * 100).toFixed(1)}%</div>
             </div>
@@ -359,10 +363,6 @@ async function loadMetrics() {
 
         if (currentUser.role === "admin") {
             html += `
-            <div class="stat-card glass">
-                <div class="stat-label">Recall</div>
-                <div class="stat-value">${(m.model_recall * 100).toFixed(1)}%</div>
-            </div>
             <div class="stat-card glass">
                 <div class="stat-label">Total Predictions</div>
                 <div class="stat-value">${m.total_predictions.toLocaleString()}</div>

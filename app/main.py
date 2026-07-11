@@ -124,7 +124,6 @@ app.include_router(sample_router)
 
 # ── Health endpoints ──────────────────────────────────────────────────────────
 
-@app.get("/", response_model=HealthResponse, tags=["health"])
 @app.get("/health", response_model=HealthResponse, tags=["health"])
 async def health_check():
     """Basic health check — no auth required."""
@@ -137,6 +136,7 @@ async def health_check():
 
 # ── Frontend ──────────────────────────────────────────────────────────────────
 
+@app.get("/", include_in_schema=False)
 @app.get("/dashboard", include_in_schema=False)
 async def serve_dashboard():
     """Serve the frontend dashboard."""

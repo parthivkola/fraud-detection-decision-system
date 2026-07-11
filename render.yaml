@@ -1,23 +1,49 @@
 services:
+  # ── Web API (Docker-based) ──────────────────────────────────────────────────
   - type: web
     name: fraud-detection-api
-    runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    runtime: docker          # use the Dockerfile — keeps saved_models & frontend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+
     envVars:
-      - key: PYTHON_VERSION
-        value: "3.11.0"
+      # Wired from the Render-managed Postgres instance below
       - key: DATABASE_URL
         fromDatabase:
           name: fraud-detection-db
           property: connectionURI
+
+      # JWT — auto-generated random value; rotate any time via dashboard
       - key: SECRET_KEY
         generateValue: true
+
       - key: ALGORITHM
         value: HS256
+
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "30"
 
+      # Default admin seeded on first boot — change via dashboard before deploy
+      - key: DEFAULT_ADMIN_USERNAME
+        value: admin
+
+      - key: DEFAULT_ADMIN_EMAIL
+        value: admin@fraudguard.example.com
+
+      # ⚠️  Set this to a strong password in the Render dashboard before deploying
+      - key: DEFAULT_ADMIN_PASSWORD
+        value: ChangeMe123!
+
+      - key: LOG_LEVEL
+        value: INFO
+
+      - key: DEBUG
+        value: "false"
+
+# ── Managed Postgres ──────────────────────────────────────────────────────────
 databases:
   - name: fraud-detection-db
     plan: free
+    databaseName: fraud_detection
+    user: fraud_user

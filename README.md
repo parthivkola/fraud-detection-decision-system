@@ -38,6 +38,8 @@ fraud-detection-decision-system/
 ├── saved_models/               # Serialized model (.joblib) & metadata (.json) artifacts
 ├── tests/                      # Comprehensive pytest test suite (29/29 passing)
 ├── Dockerfile                  # Multi-stage Docker build (Node frontend build -> Python runtime)
+├── docker-compose.yml          # Full-stack container orchestration (PostgreSQL + API + UI)
+├── entrypoint.sh               # Startup script for automatic Alembic migrations
 ├── render.yaml                 # Render cloud deployment blueprint
 └── requirements.txt            # Python backend dependencies
 ```
@@ -67,6 +69,17 @@ When booting for the first time, the system automatically seeds a default admini
 ---
 
 ## Quick Start
+
+### Docker Compose (Recommended)
+
+Spin up the full stack (PostgreSQL database, FastAPI backend with automatic Alembic migrations, and built React UI) with a single command:
+
+```bash
+docker compose up --build
+```
+Visit **http://localhost:8000** in your browser to access the Aegis AI Portal. API documentation is available at **http://localhost:8000/docs**.
+
+---
 
 ### Local Development
 

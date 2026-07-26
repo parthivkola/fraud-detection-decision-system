@@ -12,20 +12,24 @@ router = APIRouter(prefix="/api/v1", tags=["sample"])
 
 
 def _generate_synthetic_csv() -> Response:
-    n = random.randint(20, 25)
+    n = random.randint(15, 22)
     data: dict = {}
     for i in range(1, 29):
         std = random.uniform(0.8, 1.2)
         data[f"V{i}"] = np.round(np.random.normal(0.0, std, n), 6)
 
-    # Distribute: ~35% LOW, ~35% MEDIUM, ~30% CRITICAL
-    n_crit = int(n * 0.30)
-    n_med = int(n * 0.35)
+    # User requested 1-5 total anomalies per sample, mostly 1-3
+    n_anomalies = random.choices([1, 2, 3, 4, 5], weights=[0.35, 0.35, 0.20, 0.05, 0.05])[0]
+    n_anomalies = min(n_anomalies, n)
 
     indices = list(range(n))
     random.shuffle(indices)
-    crit_idx = indices[:n_crit]
-    med_idx = indices[n_crit : n_crit + n_med]
+    anomaly_idx = indices[:n_anomalies]
+
+    # Assign some as CRITICAL and some as MEDIUM
+    n_crit = max(1, n_anomalies // 2) if n_anomalies > 1 else (1 if random.random() < 0.5 else 0)
+    crit_idx = set(anomaly_idx[:n_crit])
+    med_idx = set(anomaly_idx[n_crit:])
 
     # Inject CRITICAL anomalies (strong negative/positive spikes on key fraud features)
     for idx in crit_idx:

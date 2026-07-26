@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -60,8 +60,42 @@ async def lifespan(app: FastAPI):
         f"features={len(app.state.model_features)}"
     )
 
-    # ── Load versioned models (if any are active in DB) ───────────────────
+    # ── Seed default showcase models if none exist ────────────────────────
     with Session(engine) as db:
+        if db.query(ModelVersion).count() == 0:
+            logger.info("Seeding default showcase model versions...")
+            v1 = ModelVersion(
+                version_tag="v1.0-champion",
+                description="Baseline XGBoost champion model with standard decision threshold (0.90). Balanced precision and recall for daily transaction serving.",
+                file_path="saved_models/v1/xgb_model.joblib",
+                scaler_path="saved_models/v1/amount_scaler.joblib",
+                metadata_path="saved_models/v1/model_metadata.json",
+                is_active=True,
+                ab_weight=0.6,
+            )
+            v2 = ModelVersion(
+                version_tag="v2.0-recall-challenger",
+                description="Tuned XGBoost challenger model optimized for maximum recall (0.65 decision threshold). Designed to catch emerging fraud patterns during peak hours.",
+                file_path="saved_models/v2/xgb_model.joblib",
+                scaler_path="saved_models/v2/amount_scaler.joblib",
+                metadata_path="saved_models/v2/model_metadata.json",
+                is_active=True,
+                ab_weight=0.3,
+            )
+            v3 = ModelVersion(
+                version_tag="v3.0-precision-guard",
+                description="Conservative high-precision model minimizing false alarms (0.95 decision threshold). Recommended for VIP customer segments to avoid friction.",
+                file_path="saved_models/v3/xgb_model.joblib",
+                scaler_path="saved_models/v3/amount_scaler.joblib",
+                metadata_path="saved_models/v3/model_metadata.json",
+                is_active=False,
+                ab_weight=0.1,
+            )
+            db.add_all([v1, v2, v3])
+            db.commit()
+            logger.info("Showcase model versions seeded successfully.")
+
+        # ── Load versioned models (if any are active in DB) ───────────────────
         active_versions = db.query(ModelVersion).filter(ModelVersion.is_active.is_(True)).all()
         loaded_versions = {}
         for v in active_versions:
@@ -124,19 +158,22 @@ app.include_router(sample_router)
 
 # ── Health endpoints ──────────────────────────────────────────────────────────
 
+@app.get("/", response_model=HealthResponse, tags=["health"], summary="Health check or Dashboard UI")
 @app.get("/health", response_model=HealthResponse, tags=["health"])
-async def health_check():
-    """Basic health check — no auth required."""
+async def health_check(request: Request):
+    """Basic health check (JSON), or serve dashboard UI if text/html requested."""
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        return FileResponse("frontend/index.html")
     return HealthResponse(
         status="ok",
         version=settings.APP_VERSION,
-        model_loaded=hasattr(app.state, "model") and app.state.model is not None,
+        model_loaded=hasattr(request.app.state, "model") and request.app.state.model is not None,
     )
 
 
 # ── Frontend ──────────────────────────────────────────────────────────────────
 
-@app.get("/", include_in_schema=False)
 @app.get("/dashboard", include_in_schema=False)
 async def serve_dashboard():
     """Serve the frontend dashboard."""

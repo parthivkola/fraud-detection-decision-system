@@ -5,6 +5,7 @@ need a running PostgreSQL instance.
 """
 from __future__ import annotations
 
+import os
 from typing import Generator
 from unittest.mock import MagicMock
 
@@ -14,14 +15,15 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+# ── Set environment before app imports ────────────────────────────────────────
+SQLALCHEMY_TEST_URL = "sqlite:///./test.db"
+os.environ["DATABASE_URL"] = SQLALCHEMY_TEST_URL
+os.environ["LOG_DIR"] = "/tmp/test_logs"
+
 from app.auth import create_access_token, hash_password
 from app.database import Base, get_db
 from app.main import app
 from app.models import User
-
-# ── In-memory SQLite ──────────────────────────────────────────────────────────
-
-SQLALCHEMY_TEST_URL = "sqlite:///./test.db"
 
 engine = create_engine(SQLALCHEMY_TEST_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)

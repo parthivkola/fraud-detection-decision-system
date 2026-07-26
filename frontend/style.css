@@ -621,6 +621,38 @@ tr:hover td { background: #f9fafb; }
     font-weight: 500;
 }
 
+.model-actions {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    margin-left: 0.5rem;
+    padding-left: 0.75rem;
+    border-left: 1px solid var(--border);
+}
+
+.weight-controls {
+    display: flex;
+    gap: 0.3rem;
+    align-items: center;
+}
+
+.weight-input {
+    width: 65px;
+    padding: 0.3rem 0.5rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.82rem;
+    text-align: center;
+}
+
+.weight-input:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
 /* ── Empty State ──────────────────────────────────────────────── */
 .empty-state {
     text-align: center;

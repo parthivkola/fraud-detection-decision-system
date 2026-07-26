@@ -297,6 +297,8 @@ async function loadModels() {
         }
         emptyEl.classList.add("hidden");
 
+        const isAdmin = currentUser?.role === "admin";
+
         listEl.innerHTML = models.map((m) => `
             <div class="model-card glass">
                 <div class="model-info">
@@ -308,12 +310,53 @@ async function loadModels() {
                     <span class="active-badge ${m.is_active ? "active" : "inactive"}">
                         ${m.is_active ? "Active" : "Inactive"}
                     </span>
+                    ${isAdmin ? `
+                    <div class="model-actions">
+                        <button class="btn btn-sm ${m.is_active ? "btn-outline-danger" : "btn-outline-success"}" onclick="toggleModelActive(${m.id}, ${m.is_active})">
+                            ${m.is_active ? "Deactivate" : "Activate"}
+                        </button>
+                        <div class="weight-controls">
+                            <input type="number" step="0.05" min="0" max="1" value="${m.ab_weight}" id="weight-${m.id}" class="weight-input" title="A/B Weight">
+                            <button class="btn btn-sm btn-outline" onclick="updateModelWeight(${m.id})">Set Weight</button>
+                        </div>
+                    </div>` : ""}
                 </div>
             </div>`).join("");
     } catch (err) {
         console.error("Failed to load models:", err);
     }
 }
+
+async function toggleModelActive(id, currentlyActive) {
+    try {
+        const endpoint = currentlyActive ? `/api/v1/models/${id}/deactivate` : `/api/v1/models/${id}/activate`;
+        await api(endpoint, { method: "PATCH" });
+        await loadModels();
+    } catch (err) {
+        alert(`Failed to update model status: ${err.message}`);
+    }
+}
+
+async function updateModelWeight(id) {
+    try {
+        const inputEl = document.getElementById(`weight-${id}`);
+        const val = parseFloat(inputEl.value);
+        if (isNaN(val) || val < 0 || val > 1) {
+            alert("Weight must be between 0.0 and 1.0");
+            return;
+        }
+        await api(`/api/v1/models/${id}`, {
+            method: "PATCH",
+            json: { ab_weight: val }
+        });
+        await loadModels();
+    } catch (err) {
+        alert(`Failed to update weight: ${err.message}`);
+    }
+}
+
+window.toggleModelActive = toggleModelActive;
+window.updateModelWeight = updateModelWeight;
 
 // ── Metrics ──────────────────────────────────────────────────────
 

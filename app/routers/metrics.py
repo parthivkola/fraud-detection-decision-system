@@ -40,31 +40,33 @@ def _load_model_metrics() -> dict:
 )
 def get_metrics(
     request: Request,
+    model_tag: str | None = None,
     db: Session = Depends(get_db),
     _user: User = Depends(require_role("admin", "analyst")),
 ):
     """Return aggregate system metrics. Requires admin or analyst role."""
     import time
 
-    # Counts
-    total_predictions = db.query(func.count(PredictionResult.id)).scalar() or 0
-    total_batches = db.query(func.count(PredictionBatch.id)).scalar() or 0
+    # Base query filters
+    pred_query = db.query(PredictionResult)
+    batch_query = db.query(PredictionBatch)
+    risk_query = db.query(PredictionResult.risk_level, func.count(PredictionResult.id))
 
-    flagged_fraud = (
-        db.query(func.count(PredictionResult.id))
-        .filter(PredictionResult.is_fraud.is_(True))
-        .scalar()
-        or 0
-    )
+    if model_tag:
+        pred_query = pred_query.join(PredictionBatch).join(ModelVersion).filter(ModelVersion.version_tag == model_tag)
+        batch_query = batch_query.join(ModelVersion).filter(ModelVersion.version_tag == model_tag)
+        risk_query = risk_query.join(PredictionBatch).join(ModelVersion).filter(ModelVersion.version_tag == model_tag)
+
+    # Counts
+    total_predictions = pred_query.count()
+    total_batches = batch_query.count()
+
+    flagged_fraud = pred_query.filter(PredictionResult.is_fraud.is_(True)).count()
     flagged_legitimate = total_predictions - flagged_fraud
     fraud_flag_rate = flagged_fraud / total_predictions if total_predictions > 0 else 0.0
 
     # Risk distribution
-    risk_rows = (
-        db.query(PredictionResult.risk_level, func.count(PredictionResult.id))
-        .group_by(PredictionResult.risk_level)
-        .all()
-    )
+    risk_rows = risk_query.group_by(PredictionResult.risk_level).all()
     risk_distribution = {level: count for level, count in risk_rows}
 
     # Active model versions

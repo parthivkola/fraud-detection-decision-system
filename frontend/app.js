@@ -191,8 +191,14 @@ async function handleFile(file) {
     const formData = new FormData();
     formData.append("file", file);
 
+    let url = "/api/v1/fraud/predict";
+    const modelSelect = document.getElementById("predict-model-select");
+    if (modelSelect && modelSelect.value) {
+        url += `?model_tag=${encodeURIComponent(modelSelect.value)}`;
+    }
+
     try {
-        const data = await api("/api/v1/fraud/predict", {
+        const data = await api(url, {
             method: "POST",
             body: formData,
         });
@@ -257,7 +263,7 @@ async function loadHistory() {
         emptyEl.classList.add("hidden");
 
         listEl.innerHTML = batches.map((b) => `
-            <div class="history-card glass">
+            <div class="history-card card">
                 <div class="history-info">
                     <h4>Batch #${b.id}</h4>
                     <p>${formatDate(b.created_at)}</p>
@@ -300,7 +306,7 @@ async function loadModels() {
         const isAdmin = currentUser?.role === "admin";
 
         listEl.innerHTML = models.map((m) => `
-            <div class="model-card glass">
+            <div class="model-card card">
                 <div class="model-info">
                     <h4>${m.version_tag}</h4>
                     <p>${m.description || "No description"} · ${formatDate(m.created_at)}</p>
@@ -322,6 +328,14 @@ async function loadModels() {
                     </div>` : ""}
                 </div>
             </div>`).join("");
+
+        const optionsHtml = `<option value="">Auto (A/B Test)</option>` + 
+            models.filter(m => m.is_active).map(m => `<option value="${m.version_tag}">${m.version_tag}</option>`).join("");
+        const predictSelect = document.getElementById("predict-model-select");
+        const metricsSelect = document.getElementById("metrics-model-select");
+        if (predictSelect && predictSelect.options.length <= 1) predictSelect.innerHTML = optionsHtml;
+        if (metricsSelect && metricsSelect.options.length <= 1) metricsSelect.innerHTML = `<option value="">All Models</option>` + 
+            models.filter(m => m.is_active).map(m => `<option value="${m.version_tag}">${m.version_tag}</option>`).join("");
     } catch (err) {
         console.error("Failed to load models:", err);
     }
@@ -363,66 +377,75 @@ window.updateModelWeight = updateModelWeight;
 async function loadMetrics() {
     const contentEl = $("#metrics-content");
     const deniedEl = $("#metrics-denied");
+    const metricsSelect = document.getElementById("metrics-model-select");
 
-    if (currentUser?.role !== "admin" && currentUser?.role !== "analyst") {
-        contentEl.innerHTML = "";
+    // Must be admin or analyst
+    if (!currentUser || (currentUser.role !== "admin" && currentUser.role !== "analyst")) {
+        contentEl.classList.add("hidden");
         deniedEl.classList.remove("hidden");
         return;
     }
+
     deniedEl.classList.add("hidden");
+    contentEl.classList.remove("hidden");
+    contentEl.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+
+    let url = "/api/v1/metrics";
+    if (metricsSelect && metricsSelect.value) {
+        url += `?model_tag=${encodeURIComponent(metricsSelect.value)}`;
+    }
 
     try {
-        const m = await api("/api/v1/metrics");
-        
+        const m = await api(url);
         let html = `
-            <div class="stat-card glass">
+            <div class="stat-card card">
                 <div class="stat-label">Precision</div>
                 <div class="stat-value">${(m.model_precision * 100).toFixed(1)}%</div>
             </div>
-            <div class="stat-card glass">
+            <div class="stat-card card">
                 <div class="stat-label">Accuracy</div>
                 <div class="stat-value">${(m.model_accuracy * 100).toFixed(1)}%</div>
             </div>
-            <div class="stat-card glass">
+            <div class="stat-card card">
                 <div class="stat-label">Recall</div>
                 <div class="stat-value">${(m.model_recall * 100).toFixed(1)}%</div>
             </div>
-            <div class="stat-card glass">
+            <div class="stat-card card">
                 <div class="stat-label">F1 Score</div>
                 <div class="stat-value">${(m.model_f1 * 100).toFixed(1)}%</div>
             </div>
-            <div class="stat-card glass">
+            <div class="stat-card card">
                 <div class="stat-label">ROC-AUC</div>
                 <div class="stat-value">${(m.model_roc_auc * 100).toFixed(1)}%</div>
             </div>
-            <div class="stat-card glass">
+            <div class="stat-card card">
                 <div class="stat-label">Threshold</div>
                 <div class="stat-value">${m.threshold}</div>
             </div>
-            <div class="stat-card glass">
+            <div class="stat-card card">
                 <div class="stat-label">Active Models</div>
                 <div class="stat-value">${m.active_model_versions.length ? m.active_model_versions.join(", ") : "default"}</div>
             </div>`;
 
         if (currentUser.role === "admin") {
             html += `
-            <div class="stat-card glass">
+            <div class="stat-card card">
                 <div class="stat-label">Total Predictions</div>
                 <div class="stat-value">${m.total_predictions.toLocaleString()}</div>
             </div>
-            <div class="stat-card glass">
+            <div class="stat-card card">
                 <div class="stat-label">Batches Run</div>
                 <div class="stat-value">${m.total_batches}</div>
             </div>
-            <div class="stat-card glass stat-fraud">
+            <div class="stat-card card stat-fraud">
                 <div class="stat-label">Flagged Fraud</div>
                 <div class="stat-value">${m.flagged_fraud}</div>
             </div>
-            <div class="stat-card glass">
+            <div class="stat-card card">
                 <div class="stat-label">Flagged Legit</div>
                 <div class="stat-value">${m.flagged_legitimate}</div>
             </div>
-            <div class="stat-card glass">
+            <div class="stat-card card">
                 <div class="stat-label">Uptime</div>
                 <div class="stat-value">${formatUptime(m.uptime_seconds)}</div>
             </div>`;
@@ -445,23 +468,17 @@ function formatUptime(seconds) {
 
 // ── Sample CSV download ──────────────────────────────────────────
 
-function downloadSampleCSV() {
-    // Hit the backend endpoint that returns real dataset rows
-    const a = document.createElement("a");
-    a.href = `${API_BASE}/api/v1/sample-csv`;
-    a.download = "sample_transactions.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-}
-
 // Inject sample download link AFTER (outside) the upload zone
 const sampleLink = document.createElement("a");
-sampleLink.href = "#";
+sampleLink.href = `${API_BASE}/api/v1/sample-csv`;
 sampleLink.className = "sample-link";
 sampleLink.textContent = "⬇ Download sample CSV to test";
-sampleLink.addEventListener("click", (e) => { e.preventDefault(); downloadSampleCSV(); });
 uploadZone.parentNode.insertBefore(sampleLink, uploadZone.nextSibling);
+
+const metricsSelect = document.getElementById("metrics-model-select");
+if (metricsSelect) {
+    metricsSelect.addEventListener("change", loadMetrics);
+}
 
 // ── Auto-login if token exists ───────────────────────────────────
 if (token) {

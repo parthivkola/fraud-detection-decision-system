@@ -34,15 +34,22 @@ router = APIRouter(prefix="/api/v1/fraud", tags=["fraud"])
 REQUIRED_FEATURES = [f"V{i}" for i in range(1, 29)] + ["Amount"]
 
 
-def _select_model(request: Request):
+def _select_model(request: Request, override_tag: str | None = None):
     """Select a model for inference.
 
-    If multiple active model versions have been loaded (A/B test), a weighted
-    random selection picks one per request.  Falls back to the default
+    If override_tag is provided, returns that specific model version.
+    Otherwise, if multiple active model versions have been loaded (A/B test),
+    a weighted random selection picks one per request. Falls back to the default
     single-model loaded at startup.
     """
     loaded_versions = getattr(request.app.state, "loaded_versions", None)
     if loaded_versions and len(loaded_versions) > 0:
+        if override_tag:
+            if override_tag not in loaded_versions:
+                raise HTTPException(status_code=400, detail=f"Model version '{override_tag}' not loaded or not active.")
+            v = loaded_versions[override_tag]
+            return v["model"], v["scaler"], v["threshold"], v["version_id"], override_tag
+
         tags = list(loaded_versions.keys())
         weights = [loaded_versions[t]["ab_weight"] for t in tags]
         chosen_tag = random.choices(tags, weights=weights, k=1)[0]
@@ -50,6 +57,8 @@ def _select_model(request: Request):
         return v["model"], v["scaler"], v["threshold"], v["version_id"], chosen_tag
 
     # Fallback: single model loaded at startup
+    if override_tag:
+        raise HTTPException(status_code=400, detail="No active versioned models loaded for selection.")
     return (
         request.app.state.model,
         request.app.state.scaler,
@@ -63,6 +72,7 @@ def _select_model(request: Request):
 async def predict_fraud(
     request: Request,
     file: UploadFile = File(..., description="CSV file with transaction data"),
+    model_tag: str | None = None,
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
@@ -101,7 +111,7 @@ async def predict_fraud(
 
     df = df[REQUIRED_FEATURES]
 
-    model, scaler, threshold, version_id, version_tag = _select_model(request)
+    model, scaler, threshold, version_id, version_tag = _select_model(request, model_tag)
 
     try:
         df_transformed = transform_new_data(df, scaler)

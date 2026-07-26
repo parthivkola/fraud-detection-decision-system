@@ -17,9 +17,9 @@
         <div class="auth-brand">
             <div class="brand-icon">🛡️</div>
             <h1>FraudGuard</h1>
-            <p class="subtitle">AI-Powered Fraud Detection System</p>
+            <p class="subtitle">Fraud Detection System</p>
         </div>
-        <div class="auth-card glass">
+        <div class="auth-card card">
             <div class="auth-tabs">
                 <button class="tab-btn active" data-tab="login">Login</button>
                 <button class="tab-btn" data-tab="register">Register</button>
@@ -28,11 +28,11 @@
             <form id="login-form" class="auth-form">
                 <div class="form-group">
                     <label for="login-username">Username</label>
-                    <input type="text" id="login-username" placeholder="admin" required>
+                    <input type="text" id="login-username" value="admin" required>
                 </div>
                 <div class="form-group">
                     <label for="login-password">Password</label>
-                    <input type="password" id="login-password" placeholder="admin123" required>
+                    <input type="password" id="login-password" value="admin123" required>
                 </div>
                 <button type="submit" class="btn btn-primary btn-full">Sign In</button>
             </form>
@@ -61,7 +61,7 @@
 <!-- ── Dashboard Screen ───────────────────────────────────────── -->
 <div id="dashboard-screen" class="screen">
     <!-- Top Nav -->
-    <nav class="topnav glass">
+    <nav class="topnav card">
         <div class="nav-brand">
             <span class="brand-icon-sm">🛡️</span>
             <span class="brand-name">FraudGuard</span>
@@ -87,7 +87,14 @@
                 <p>Upload a CSV with transaction data (V1–V28 + Amount)</p>
             </div>
 
-            <div class="upload-zone glass" id="upload-zone">
+            <div class="form-group" style="max-width: 300px; margin-bottom: 1rem;">
+                <label for="predict-model-select">Model Version (Optional)</label>
+                <select id="predict-model-select" class="form-control" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                    <option value="">Auto (A/B Test)</option>
+                </select>
+            </div>
+
+            <div class="upload-zone card" id="upload-zone">
                 <div class="upload-icon">📄</div>
                 <p>Drag & drop a CSV file here</p>
                 <p class="upload-hint">or click to browse</p>
@@ -101,19 +108,19 @@
 
             <div id="predict-results" class="hidden">
                 <div class="stats-grid">
-                    <div class="stat-card glass">
+                    <div class="stat-card card">
                         <div class="stat-label">Total Transactions</div>
                         <div class="stat-value" id="stat-total">0</div>
                     </div>
-                    <div class="stat-card glass stat-fraud">
+                    <div class="stat-card card stat-fraud">
                         <div class="stat-label">Flagged as Fraud</div>
                         <div class="stat-value" id="stat-flagged">0</div>
                     </div>
-                    <div class="stat-card glass">
+                    <div class="stat-card card">
                         <div class="stat-label">Threshold</div>
                         <div class="stat-value" id="stat-threshold">0</div>
                     </div>
-                    <div class="stat-card glass">
+                    <div class="stat-card card">
                         <div class="stat-label">Model Version</div>
                         <div class="stat-value" id="stat-model">default</div>
                     </div>
@@ -124,7 +131,7 @@
                     <div id="risk-chart" class="risk-chart"></div>
                 </div>
 
-                <div class="results-table-wrap glass">
+                <div class="results-table-wrap card">
                     <h3>Predictions</h3>
                     <div class="table-scroll">
                         <table id="predictions-table">
@@ -170,10 +177,19 @@
 
         <!-- ── Metrics Section ──────────────────────────── -->
         <section id="section-metrics" class="section">
-            <div class="section-header">
-                <h2>System Metrics</h2>
-                <p>Aggregate system statistics</p>
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-end;">
+                <div>
+                    <h2>System Metrics</h2>
+                    <p>Overview of prediction performance and traffic</p>
+                </div>
+                <div style="min-width: 200px;">
+                    <label for="metrics-model-select" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">Filter by Model</label>
+                    <select id="metrics-model-select" class="form-control" style="width: 100%; padding: 0.4rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                        <option value="">All Models</option>
+                    </select>
+                </div>
             </div>
+
             <div id="metrics-content" class="stats-grid"></div>
             <div id="metrics-denied" class="empty-state hidden">
                 <p>🔒 Admin or analyst access required to view metrics.</p>

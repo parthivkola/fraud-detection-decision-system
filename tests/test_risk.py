@@ -16,7 +16,7 @@ class TestRiskAssessment:
 
     def test_risk_high(self):
         level, decision = assess_risk(0.7, threshold=0.9)
-        assert level == "HIGH"
+        assert level == "MEDIUM"
         assert decision == "review"
 
     def test_risk_critical(self):

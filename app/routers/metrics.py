@@ -16,10 +16,11 @@ from app.schemas import MetricsResponse
 router = APIRouter(prefix="/api/v1/metrics", tags=["metrics"])
 
 
-def _model_metrics() -> dict:
+def _model_metrics(path: str | None = None) -> dict:
     defaults = {"precision": 0.0, "recall": 0.0, "f1": 0.0, "accuracy": 0.0, "roc_auc": 0.0}
     try:
-        with open(settings.METADATA_PATH) as f:
+        target_path = path or settings.METADATA_PATH
+        with open(target_path) as f:
             meta = json.load(f)
         ev = meta.get("evaluation", meta.get("test_metrics", {}))
         return {
@@ -45,7 +46,11 @@ def metrics(
     bq = db.query(PredictionBatch)
     rq = db.query(PredictionResult.risk_level, func.count(PredictionResult.id))
 
+    selected_meta_path = None
     if model:
+        mv = db.query(ModelVersion).filter(ModelVersion.version_tag == model).first()
+        if mv:
+            selected_meta_path = mv.metadata_path
         pq = pq.join(PredictionBatch).join(ModelVersion).filter(ModelVersion.version_tag == model)
         bq = bq.join(ModelVersion).filter(ModelVersion.version_tag == model)
         rq = rq.join(PredictionBatch).join(ModelVersion).filter(ModelVersion.version_tag == model)
@@ -62,9 +67,18 @@ def metrics(
         r[0] for r in db.query(ModelVersion.version_tag).filter(ModelVersion.is_active.is_(True)).all()
     ]
 
-    mm = _model_metrics()
+    mm = _model_metrics(selected_meta_path)
     uptime = time.time() - getattr(request.app.state, "startup_time", time.time())
-    threshold = getattr(request.app.state, "threshold", 0.5)
+    
+    if selected_meta_path:
+        try:
+            with open(selected_meta_path) as f:
+                meta = json.load(f)
+            threshold = meta.get("threshold", 0.5)
+        except Exception:
+            threshold = getattr(request.app.state, "threshold", 0.5)
+    else:
+        threshold = getattr(request.app.state, "threshold", 0.5)
 
     return MetricsResponse(
         total_predictions=total,

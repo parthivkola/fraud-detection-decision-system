@@ -49,25 +49,15 @@ export const PredictTab: React.FC = () => {
     }
   };
 
-  const handleDownloadSample = async () => {
-    try {
-      const res = await fetch(api.getSampleCsvUrl());
-      const text = await res.text();
-      const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.setAttribute('download', 'sample_transactions.csv');
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      }, 5000);
-    } catch (e) {
-      console.error('Failed to download sample CSV:', e);
-    }
+  const handleSampleCsv = async () => {
+    const res = await fetch(api.getSampleCsvUrl());
+    const text = await res.text();
+    // data: URI approach - guaranteed filename, no Blob URL race condition
+    const dataUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(text);
+    const a = document.createElement('a');
+    a.href = dataUri;
+    a.download = 'sample_transactions.csv';
+    a.click();
   };
 
   return (
@@ -82,7 +72,7 @@ export const PredictTab: React.FC = () => {
             </div>
             <button
               type="button"
-              onClick={handleDownloadSample}
+              onClick={handleSampleCsv}
               className="btn btn-secondary"
               style={{ fontSize: '0.8125rem', padding: '0.4rem 0.875rem' }}
             >
@@ -197,7 +187,7 @@ export const PredictTab: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', background: 'var(--bg-input)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div className="badge badge-medium">MEDIUM / HIGH</div>
+              <div className="badge badge-medium">MEDIUM</div>
               <div>
                 <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#f4f4f5' }}>Analyst Review</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Anomalous signature detected. Routed to fraud analysts for verification before clearing.</div>

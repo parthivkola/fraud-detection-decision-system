@@ -172,7 +172,6 @@ export const MetricsTab: React.FC = () => {
             {[
               { label: 'LOW', count: metrics.risk_distribution.LOW || 0, color: 'var(--status-success)' },
               { label: 'MEDIUM', count: metrics.risk_distribution.MEDIUM || 0, color: 'var(--status-warning)' },
-              { label: 'HIGH', count: metrics.risk_distribution.HIGH || 0, color: '#f97316' },
               { label: 'CRITICAL', count: metrics.risk_distribution.CRITICAL || 0, color: 'var(--status-danger)' },
             ].map((item) => {
               const total = metrics.total_predictions || 1;

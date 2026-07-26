@@ -5,10 +5,8 @@ from typing import Tuple
 def risk_level(prob: float, threshold: float) -> str:
     if prob < threshold * 0.3:
         return "LOW"
-    if prob < threshold * 0.7:
-        return "MEDIUM"
     if prob < threshold:
-        return "HIGH"
+        return "MEDIUM"
     return "CRITICAL"
 
 

@@ -52,15 +52,19 @@ export const PredictTab: React.FC = () => {
   const handleDownloadSample = async () => {
     try {
       const res = await fetch(api.getSampleCsvUrl());
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(new Blob([blob], { type: 'text/csv;charset=utf-8;' }));
+      const text = await res.text();
+      const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
+      a.style.display = 'none';
       a.href = url;
-      a.download = 'sample_transactions.csv';
+      a.setAttribute('download', 'sample_transactions.csv');
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 5000);
     } catch (e) {
       console.error('Failed to download sample CSV:', e);
     }

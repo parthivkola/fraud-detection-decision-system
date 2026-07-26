@@ -1,3 +1,12 @@
+# ── Stage 1: Build React Frontend ──────────────────────────────────────────────
+FROM node:20-alpine AS frontend-build
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci || npm install
+COPY frontend/ ./
+RUN npm run build
+
+# ── Stage 2: Python Backend Runtime ───────────────────────────────────────────
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -17,10 +26,12 @@ COPY ml/ ./ml/
 COPY saved_models/ ./saved_models/
 COPY alembic/ ./alembic/
 COPY alembic.ini .
-COPY frontend/ ./frontend/
+
+# Copy built frontend assets from stage 1
+COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 # Runtime directories — set permissions before the volume can shadow them
-RUN mkdir -p logs data/raw data/processed && chmod -R 777 logs
+RUN mkdir -p logs data/raw data/processed && chmod -R 777 logs data
 
 EXPOSE 8000
 

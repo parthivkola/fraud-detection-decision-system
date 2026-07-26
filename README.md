@@ -1,43 +1,68 @@
-# Fraud Detection Decision System
+# Aegis — Enterprise Fraud Detection & AI Decision System
 
-A production-grade **FastAPI** backend for real-time credit card fraud detection, powered by **XGBoost**. Features JWT authentication with role-based access, model versioning with A/B testing, structured JSON logging, and full Docker support.
+A professional, production-grade **FastAPI + React 18 (Vite + TypeScript)** full-stack platform for real-time credit card fraud inference, powered by **XGBoost gradient boosted trees**. Features JWT authentication with role-based access control, dynamic ML model registry with weighted A/B testing, real-time system analytics, and multi-stage Docker deployment support.
 
 ---
 
-## Architecture
+## Architecture Overview
 
 ```
 fraud-detection-decision-system/
-├── app/                        # FastAPI application
-│   ├── main.py                 # App entry point, lifespan, router registration
-│   ├── config.py               # Pydantic settings (env vars)
-│   ├── database.py             # SQLAlchemy engine + session
-│   ├── models.py               # ORM models (User, ModelVersion, PredictionBatch, PredictionResult)
-│   ├── schemas.py              # Pydantic request/response schemas
-│   ├── auth.py                 # JWT + bcrypt auth utilities + FastAPI deps
-│   ├── crud.py                 # Database CRUD operations
-│   ├── risk.py                 # Risk assessment engine (LOW → CRITICAL)
-│   ├── logger.py               # Structured JSON logging setup
+├── app/                        # FastAPI Backend Application
+│   ├── main.py                 # App entry point, lifespan DB seed, React SPA mounting
+│   ├── config.py               # Pydantic settings & environment configuration
+│   ├── database.py             # SQLAlchemy engine & session management
+│   ├── models.py               # ORM domain models (User, ModelVersion, PredictionBatch, PredictionResult)
+│   ├── schemas.py              # Strict Pydantic request/response schemas
+│   ├── auth.py                 # JWT & bcrypt security utilities
+│   ├── risk.py                 # Risk assessment engine (LOW / MEDIUM / HIGH / CRITICAL)
+│   ├── logger.py               # Standardized application logging
 │   └── routers/
-│       ├── fraud.py            # POST /predict, GET /history
-│       ├── users.py            # POST /register, POST /login, GET /me
-│       ├── model.py            # Model version CRUD + activate/deactivate
-│       └── metrics.py          # GET /metrics (admin only)
-├── ml/                         # ML pipeline
-│   ├── preprocessing/
-│   │   ├── prepare_data.py     # Data loading, validation, cleaning
-│   │   └── transform_features.py  # log1p + StandardScaler on Amount
-│   ├── training/
-│   │   ├── train.py            # XGBoost training pipeline
-│   │   └── evaluate.py         # Threshold tuning + evaluation metrics
-│   └── utils.py                # Artifact save/load utilities
-├── saved_models/               # Serialized model + scaler + metadata
-├── alembic/                    # Database migrations
-├── tests/                      # 29 pytest tests
-├── Dockerfile                  # Multi-stage Docker build
-├── docker-compose.yml          # API + PostgreSQL stack
-└── requirements.txt
+│       ├── auth.py             # POST /api/v1/auth/register, login, me
+│       ├── fraud.py            # POST /api/v1/fraud/predict, history
+│       ├── models.py           # POST/GET/PATCH /api/v1/models (Model Registry & A/B weights)
+│       ├── metrics.py          # GET /api/v1/metrics (System & model evaluation KPI telemetry)
+│       └── sample.py           # GET /api/v1/sample-csv (Synthetic transaction generator)
+├── frontend/                   # React 18 + Vite + TypeScript SPA
+│   ├── src/
+│   │   ├── components/         # Clean UI components (Navbar, Login, PredictTab, MetricsTab, ModelsTab)
+│   │   ├── api.ts              # Strongly-typed fetch API wrapper
+│   │   ├── index.css           # Modern glassmorphism dark-theme design system
+│   │   └── main.tsx            # React root mount
+│   └── dist/                   # Built production static assets served directly by FastAPI
+├── ml/                         # Machine Learning Pipeline
+│   ├── preprocessing/          # Data transformations & scaling
+│   ├── training/               # XGBoost model training & evaluation scripts
+│   ├── train_models.py         # Multi-version training script (v1-champion, v2-high-recall, v3-high-precision)
+│   └── utils.py                # Joblib artifact serialization utilities
+├── saved_models/               # Serialized model (.joblib) & metadata (.json) artifacts
+├── tests/                      # Comprehensive pytest test suite (29/29 passing)
+├── Dockerfile                  # Multi-stage Docker build (Node frontend build -> Python runtime)
+├── render.yaml                 # Render cloud deployment blueprint
+└── requirements.txt            # Python backend dependencies
 ```
+
+---
+
+## Key Features
+
+1. **Cohesive Single-Page Application**: A modern React 18 + Vite + TypeScript frontend with a sleek glassmorphic dark theme, responsive data visualizations, and interactive A/B testing sliders. Served directly by FastAPI in production.
+2. **XGBoost Inference Engine**: Evaluates transactions in real time (<100ms) against trained gradient boosted decision trees with custom log1p and StandardScaler preprocessing pipelines.
+3. **Dynamic Model Registry & Weighted A/B Testing**:
+   - **v1-champion**: Standard balanced threshold (0.90).
+   - **v2-high-recall**: High sensitivity (0.65 threshold) designed to catch subtle fraud patterns.
+   - **v3-high-precision**: High specificity (0.95 threshold) minimizing false positives.
+   - Dynamically route production inference traffic across active models using customizable percentage weights.
+4. **Real-Time Telemetry & Analytics**: Filter precision, recall, F1, accuracy, ROC AUC, uptime, and risk distribution by specific model version tags directly from the UI dashboard.
+5. **Synthetic Sample Data Generator**: Instantly download randomly generated transaction CSVs with legitimate features and realistic fraud signatures to test inference on demand.
+
+---
+
+## Default Credentials
+
+When booting for the first time, the system automatically seeds a default administrator account in SQLite / PostgreSQL:
+- **Username**: `admin`
+- **Password**: `admin123`
 
 ---
 
@@ -45,210 +70,41 @@ fraud-detection-decision-system/
 
 ### Local Development
 
+1. **Install Backend Dependencies & Train Models**:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   python ml/train_models.py
+   ```
+
+2. **Build React Frontend**:
+   ```bash
+   cd frontend
+   npm install
+   npm run build
+   cd ..
+   ```
+
+3. **Start the Unified Server**:
+   ```bash
+   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+   ```
+   Visit **http://localhost:8000** in your browser to access the Aegis AI Portal. API documentation is available at **http://localhost:8000/docs**.
+
+### Running Tests
+
+Run the full automated pytest suite:
 ```bash
-# 1. Create virtual environment
-python -m venv venv
-source venv/bin/activate
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Set up PostgreSQL and configure .env
-cp .env.example .env  # Edit DATABASE_URL, SECRET_KEY
-
-# 4. Run database migrations
-alembic upgrade head
-
-# 5. Start the server
-uvicorn app.main:app --reload
-```
-
-### Docker
-
-```bash
-docker compose up --build -d
-# API at http://localhost:8000
-# Swagger docs at http://localhost:8000/docs
+pytest -v
 ```
 
 ---
 
-## API Endpoints
+## Cloud Deployment (Render / Docker)
 
-### Health
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/` | None | Health check |
-| GET | `/health` | None | Health check (alias) |
+This repository includes a 100% cloud-ready `render.yaml` blueprint and a multi-stage `Dockerfile` that compiles the React frontend and packages the FastAPI runtime into a single container.
 
-### Authentication
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/api/v1/auth/register` | None | Create a new user account |
-| POST | `/api/v1/auth/login` | None | Get JWT token |
-| GET | `/api/v1/auth/me` | Bearer | Get current user profile |
-| PATCH | `/api/v1/auth/users/{id}/role` | Admin | Change user role |
-
-### Fraud Detection
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/api/v1/fraud/predict` | Bearer | Upload CSV → get fraud predictions |
-| GET | `/api/v1/fraud/history` | Bearer | List prediction batches |
-| GET | `/api/v1/fraud/history/{id}` | Bearer | Get batch with all results |
-
-### Model Versioning
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/api/v1/models/` | Admin | Register a new model version |
-| GET | `/api/v1/models/` | Bearer | List all model versions |
-| GET | `/api/v1/models/{id}` | Bearer | Get model version details |
-| PATCH | `/api/v1/models/{id}` | Admin | Update description / A/B weight |
-| PATCH | `/api/v1/models/{id}/activate` | Admin | Activate for serving |
-| PATCH | `/api/v1/models/{id}/deactivate` | Admin | Deactivate |
-
-### Metrics
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/api/v1/metrics` | Admin | System metrics & statistics |
-
----
-
-## Authentication Flow
-
-1. **Register** → `POST /api/v1/auth/register` with `{username, email, password}`
-2. **Login** → `POST /api/v1/auth/login` → returns `{access_token, token_type}`
-3. **Use token** → pass `Authorization: Bearer <token>` header on all protected endpoints
-
-### Roles
-- **analyst** (default) — can run predictions, view history, list models
-- **admin** — all analyst permissions + manage models, view metrics, change user roles
-
-A default admin account (`admin / admin123`) is seeded automatically on first startup.
-
----
-
-## Model Versioning & A/B Testing
-
-Register multiple model versions pointing to different serialized artifacts:
-
-```bash
-# Register v2.0
-curl -X POST http://localhost:8000/api/v1/models/ \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"version_tag": "v2.0", "file_path": "saved_models/v2/model.joblib", ...}'
-
-# Activate both v1.0 and v2.0 with different weights for A/B testing
-curl -X PATCH http://localhost:8000/api/v1/models/1/activate -H "Authorization: Bearer $ADMIN_TOKEN"
-curl -X PATCH http://localhost:8000/api/v1/models/2/activate -H "Authorization: Bearer $ADMIN_TOKEN"
-curl -X PATCH http://localhost:8000/api/v1/models/1 \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"ab_weight": 0.7}'  # 70% traffic
-curl -X PATCH http://localhost:8000/api/v1/models/2 \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"ab_weight": 0.3}'  # 30% traffic
-```
-
-Each prediction batch records which model version produced it, enabling performance comparison.
-
----
-
-## Risk Assessment
-
-| Probability Range | Risk Level | Decision |
-|-------------------|------------|----------|
-| < 0.3 | LOW | approve |
-| 0.3 – 0.6 | MEDIUM | review |
-| 0.6 – threshold | HIGH | review |
-| ≥ threshold | CRITICAL | block |
-
----
-
-## Database Migrations
-
-```bash
-# Generate a new migration after model changes
-alembic revision --autogenerate -m "description"
-
-# Apply migrations
-alembic upgrade head
-
-# Rollback one step
-alembic downgrade -1
-```
-
----
-
-## Logging
-
-All logs are written as **structured JSON** to `logs/app.log`:
-
-```json
-{
-  "timestamp": 1713345600.123,
-  "level": "INFO",
-  "logger": "fraud_api",
-  "message": "Prediction complete: 100 txns, 3 flagged, batch_id=42",
-  "module": "fraud",
-  "function": "predict_fraud",
-  "line": 132
-}
-```
-
-Console output is human-readable when `DEBUG=true`, JSON otherwise.
-
----
-
-## Testing
-
-```bash
-# Run all 29 tests
-pytest tests/ -v
-
-# Run specific test file
-pytest tests/test_auth.py -v
-
-# Run with coverage
-pytest tests/ --cov=app --cov-report=term-missing
-```
-
----
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5432/fraud_detection` | PostgreSQL connection string |
-| `SECRET_KEY` | `change-me-...` | JWT signing key |
-| `ALGORITHM` | `HS256` | JWT algorithm |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Token TTL |
-| `LOG_LEVEL` | `INFO` | Logging level |
-| `DEBUG` | `false` | Enable debug mode |
-
----
-
-## ML Pipeline
-
-The model is trained on the [Kaggle Credit Card Fraud Detection](https://www.kaggle.com/mlg-ulb/creditcardfraud) dataset.
-
-```bash
-# Train model (requires data/raw/creditcard.csv)
-python -m ml.training.train
-```
-
-### Pipeline Steps
-1. Load data → validate columns → deduplicate → drop `Time`
-2. Split into train (70%) / validation (15%) / test (15%) — stratified
-3. Apply `log1p` + `StandardScaler` on `Amount`
-4. Train XGBoost with class-weight balancing
-5. Tune threshold on validation set (maximize recall with precision ≥ 0.80)
-6. Evaluate on test set → save model, scaler, metadata
-
-### Model Performance
-| Metric | Value |
-|--------|-------|
-| ROC-AUC | 0.970 |
-| PR-AUC | 0.781 |
-| Precision | 0.864 |
-| Recall | 0.803 |
-| F1 | 0.832 |
+1. Connect this repository to [Render.com](https://render.com).
+2. Create a new **Blueprint** and select `render.yaml`.
+3. The platform will provision a managed PostgreSQL database and build the Docker container automatically.

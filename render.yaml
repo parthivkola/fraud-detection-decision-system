@@ -33,7 +33,7 @@ services:
 
       # ⚠️  Set this to a strong password in the Render dashboard before deploying
       - key: DEFAULT_ADMIN_PASSWORD
-        value: ChangeMe123!
+        value: admin123
 
       - key: LOG_LEVEL
         value: INFO

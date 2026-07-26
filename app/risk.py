@@ -1,23 +1,25 @@
-"""
-Risk bands:
-    LOW      (prob < 0.3)              → approve
-    MEDIUM   (0.3 ≤ prob < 0.6)        → review
-    HIGH     (0.6 ≤ prob < threshold)  → review
-    CRITICAL (prob ≥ threshold)        → block
-"""
-
 from __future__ import annotations
-
 from typing import Tuple
 
 
-def assess_risk(probability: float, threshold: float) -> Tuple[str, str]:
-    """Return (risk_level, decision) for a given fraud probability."""
-    if probability >= threshold:
-        return "CRITICAL", "block"
-    elif probability >= 0.6:
-        return "HIGH", "review"
-    elif probability >= 0.3:
-        return "MEDIUM", "review"
-    else:
-        return "LOW", "approve"
+def risk_level(prob: float, threshold: float) -> str:
+    if prob < threshold * 0.3:
+        return "LOW"
+    if prob < threshold * 0.7:
+        return "MEDIUM"
+    if prob < threshold:
+        return "HIGH"
+    return "CRITICAL"
+
+
+def decision(prob: float, threshold: float) -> str:
+    if prob < threshold * 0.3:
+        return "approve"
+    if prob < threshold:
+        return "review"
+    return "block"
+
+
+def assess_risk(prob: float, threshold: float) -> Tuple[str, str]:
+    """Return (risk_level, decision) tuple for a given probability and threshold."""
+    return risk_level(prob, threshold), decision(prob, threshold)

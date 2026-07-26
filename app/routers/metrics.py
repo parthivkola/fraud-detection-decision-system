@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+import time
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -12,94 +13,72 @@ from app.database import get_db
 from app.models import ModelVersion, PredictionBatch, PredictionResult, User
 from app.schemas import MetricsResponse
 
-router = APIRouter(prefix="/api/v1", tags=["metrics"])
+router = APIRouter(prefix="/api/v1/metrics", tags=["metrics"])
 
 
-def _load_model_metrics() -> dict:
-    """Load precision, recall, F1, accuracy, ROC-AUC from model metadata file."""
+def _model_metrics() -> dict:
     defaults = {"precision": 0.0, "recall": 0.0, "f1": 0.0, "accuracy": 0.0, "roc_auc": 0.0}
     try:
         with open(settings.METADATA_PATH) as f:
             meta = json.load(f)
-        test = meta.get("evaluation", meta.get("test_metrics", {}))
+        ev = meta.get("evaluation", meta.get("test_metrics", {}))
         return {
-            "precision": round(test.get("precision", 0.0), 4),
-            "recall": round(test.get("recall", 0.0), 4),
-            "f1": round(test.get("f1", 0.0), 4),
-            "accuracy": round(test.get("accuracy", 0.0), 4),
-            "roc_auc": round(test.get("roc_auc", 0.0), 4),
+            "precision": round(ev.get("precision", 0.0), 4),
+            "recall": round(ev.get("recall", 0.0), 4),
+            "f1": round(ev.get("f1", 0.0), 4),
+            "accuracy": round(ev.get("accuracy", 0.0), 4),
+            "roc_auc": round(ev.get("roc_auc", 0.0), 4),
         }
     except Exception:
         return defaults
 
 
-@router.get(
-    "/metrics",
-    response_model=MetricsResponse,
-    summary="Get system metrics",
-)
-def get_metrics(
+@router.get("", response_model=MetricsResponse)
+@router.get("/", response_model=MetricsResponse)
+def metrics(
     request: Request,
-    model_tag: str | None = None,
+    model: str | None = Query(None, description="Filter by model version tag"),
     db: Session = Depends(get_db),
-    _user: User = Depends(require_role("admin", "analyst")),
+    _: User = Depends(require_role("admin", "analyst")),
 ):
-    """Return aggregate system metrics. Requires admin or analyst role."""
-    import time
+    pq = db.query(PredictionResult)
+    bq = db.query(PredictionBatch)
+    rq = db.query(PredictionResult.risk_level, func.count(PredictionResult.id))
 
-    # Base query filters
-    pred_query = db.query(PredictionResult)
-    batch_query = db.query(PredictionBatch)
-    risk_query = db.query(PredictionResult.risk_level, func.count(PredictionResult.id))
+    if model:
+        pq = pq.join(PredictionBatch).join(ModelVersion).filter(ModelVersion.version_tag == model)
+        bq = bq.join(ModelVersion).filter(ModelVersion.version_tag == model)
+        rq = rq.join(PredictionBatch).join(ModelVersion).filter(ModelVersion.version_tag == model)
 
-    if model_tag:
-        pred_query = pred_query.join(PredictionBatch).join(ModelVersion).filter(ModelVersion.version_tag == model_tag)
-        batch_query = batch_query.join(ModelVersion).filter(ModelVersion.version_tag == model_tag)
-        risk_query = risk_query.join(PredictionBatch).join(ModelVersion).filter(ModelVersion.version_tag == model_tag)
+    total = pq.count()
+    batches = bq.count()
+    fraud = pq.filter(PredictionResult.is_fraud.is_(True)).count()
+    risk_dist = {lvl: cnt for lvl, cnt in rq.group_by(PredictionResult.risk_level).all()}
+    for lvl in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]:
+        if lvl not in risk_dist:
+            risk_dist[lvl] = 0
 
-    # Counts
-    total_predictions = pred_query.count()
-    total_batches = batch_query.count()
+    active_tags = [
+        r[0] for r in db.query(ModelVersion.version_tag).filter(ModelVersion.is_active.is_(True)).all()
+    ]
 
-    flagged_fraud = pred_query.filter(PredictionResult.is_fraud.is_(True)).count()
-    flagged_legitimate = total_predictions - flagged_fraud
-    fraud_flag_rate = flagged_fraud / total_predictions if total_predictions > 0 else 0.0
-
-    # Risk distribution
-    risk_rows = risk_query.group_by(PredictionResult.risk_level).all()
-    risk_distribution = {level: count for level, count in risk_rows}
-
-    # Active model versions
-    active_versions = (
-        db.query(ModelVersion.version_tag)
-        .filter(ModelVersion.is_active.is_(True))
-        .all()
-    )
-    active_tags = [row[0] for row in active_versions]
-
-    # Model quality metrics from saved metadata
-    model_metrics = _load_model_metrics()
-
-    # Uptime
-    startup_time = getattr(request.app.state, "startup_time", time.time())
-    uptime = time.time() - startup_time
-
-    # Threshold
+    mm = _model_metrics()
+    uptime = time.time() - getattr(request.app.state, "startup_time", time.time())
     threshold = getattr(request.app.state, "threshold", 0.5)
 
     return MetricsResponse(
-        total_predictions=total_predictions,
-        total_batches=total_batches,
-        uptime_seconds=round(uptime, 2),
+        total_predictions=total,
+        total_batches=batches,
+        flagged_fraud=fraud,
+        flagged_legitimate=total - fraud,
+        fraud_flag_rate=round(fraud / total, 4) if total else 0.0,
         active_model_versions=active_tags,
+        model_precision=mm["precision"],
+        model_recall=mm["recall"],
+        model_f1=mm["f1"],
+        model_accuracy=mm["accuracy"],
+        model_roc_auc=mm["roc_auc"],
         threshold=round(threshold, 4),
-        flagged_fraud=flagged_fraud,
-        flagged_legitimate=flagged_legitimate,
-        fraud_flag_rate=round(fraud_flag_rate, 4),
-        model_accuracy=model_metrics["accuracy"],
-        model_precision=model_metrics["precision"],
-        model_recall=model_metrics["recall"],
-        model_f1=model_metrics["f1"],
-        model_roc_auc=model_metrics["roc_auc"],
-        risk_distribution=risk_distribution,
+        uptime_seconds=round(uptime, 2),
+        risk_distribution=risk_dist,
     )

@@ -95,10 +95,10 @@ async def lifespan(app: FastAPI):
             db.commit()
             logger.info("Showcase model versions seeded successfully.")
 
-        # ── Load versioned models (if any are active in DB) ───────────────────
-        active_versions = db.query(ModelVersion).filter(ModelVersion.is_active.is_(True)).all()
+        # ── Load versioned models ─────────────────────────────────────────────
+        all_versions = db.query(ModelVersion).all()
         loaded_versions = {}
-        for v in active_versions:
+        for v in all_versions:
             try:
                 m = load_artifact(v.file_path)
                 s = load_artifact(v.scaler_path)
@@ -108,9 +108,10 @@ async def lifespan(app: FastAPI):
                     "scaler": s,
                     "threshold": md["threshold"],
                     "ab_weight": v.ab_weight,
+                    "is_active": v.is_active,
                     "version_id": v.id,
                 }
-                logger.info(f"Loaded model version '{v.version_tag}' (weight={v.ab_weight})")
+                logger.info(f"Loaded model version '{v.version_tag}' (active={v.is_active}, weight={v.ab_weight})")
             except Exception as e:
                 logger.error(f"Failed to load model version '{v.version_tag}': {e}")
 

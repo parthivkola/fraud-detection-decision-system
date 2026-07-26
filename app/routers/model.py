@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user, require_role
@@ -87,6 +87,7 @@ def get_model(
     summary="Update a model version",
 )
 def update_model(
+    request: Request,
     version_id: int,
     payload: ModelVersionUpdate,
     db: Session = Depends(get_db),
@@ -105,6 +106,10 @@ def update_model(
     db.commit()
     db.refresh(version)
 
+    loaded = getattr(request.app.state, "loaded_versions", {})
+    if version.version_tag in loaded:
+        loaded[version.version_tag]["ab_weight"] = version.ab_weight
+
     logger.info(f"Model version '{version.version_tag}' updated by {admin.username}")
     return version
 
@@ -115,6 +120,7 @@ def update_model(
     summary="Activate a model version",
 )
 def activate_model(
+    request: Request,
     version_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(require_role("admin")),
@@ -128,6 +134,10 @@ def activate_model(
     db.commit()
     db.refresh(version)
 
+    loaded = getattr(request.app.state, "loaded_versions", {})
+    if version.version_tag in loaded:
+        loaded[version.version_tag]["is_active"] = True
+
     logger.info(
         f"Model version '{version.version_tag}' activated by {admin.username}"
     )
@@ -140,6 +150,7 @@ def activate_model(
     summary="Deactivate a model version",
 )
 def deactivate_model(
+    request: Request,
     version_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(require_role("admin")),
@@ -152,6 +163,10 @@ def deactivate_model(
     version.is_active = False
     db.commit()
     db.refresh(version)
+
+    loaded = getattr(request.app.state, "loaded_versions", {})
+    if version.version_tag in loaded:
+        loaded[version.version_tag]["is_active"] = False
 
     logger.info(
         f"Model version '{version.version_tag}' deactivated by {admin.username}"

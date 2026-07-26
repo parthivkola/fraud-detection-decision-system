@@ -50,11 +50,12 @@ def _select_model(request: Request, override_tag: str | None = None):
             v = loaded_versions[override_tag]
             return v["model"], v["scaler"], v["threshold"], v["version_id"], override_tag
 
-        tags = list(loaded_versions.keys())
-        weights = [loaded_versions[t]["ab_weight"] for t in tags]
-        chosen_tag = random.choices(tags, weights=weights, k=1)[0]
-        v = loaded_versions[chosen_tag]
-        return v["model"], v["scaler"], v["threshold"], v["version_id"], chosen_tag
+        active_tags = [t for t, v in loaded_versions.items() if v.get("is_active", True)]
+        if not override_tag and active_tags:
+            weights = [loaded_versions[t]["ab_weight"] for t in active_tags]
+            chosen_tag = random.choices(active_tags, weights=weights, k=1)[0]
+            v = loaded_versions[chosen_tag]
+            return v["model"], v["scaler"], v["threshold"], v["version_id"], chosen_tag
 
     # Fallback: single model loaded at startup
     if override_tag:

@@ -1,37 +1,44 @@
-"""Endpoint to serve random sample CSV from real dataset."""
+"""Endpoint to generate and serve sample CSV transactions."""
 from __future__ import annotations
 
 import io
 import random
 
+import numpy as np
 import pandas as pd
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 router = APIRouter(prefix="/api/v1", tags=["sample"])
 
-SAMPLE_POOL = "data/sample_pool.csv"
 
-
-@router.get("/sample-csv", summary="Download a random sample CSV from real data")
+@router.get("/sample-csv", summary="Download a random sample CSV for testing")
 def download_sample_csv():
-    """Return a random subset of 10-15 real transactions (mix of fraud + legit)."""
-    pool = pd.read_csv(SAMPLE_POOL)
+    """Generate and return 12-16 random synthetic transactions with realistic values."""
+    n_rows = random.randint(12, 16)
+    data = {}
+    
+    # Generate V1-V28 features (PCA components centered around 0)
+    for i in range(1, 29):
+        std = random.uniform(0.8, 1.5)
+        data[f"V{i}"] = np.round(np.random.normal(loc=0.0, scale=std, size=n_rows), 6)
+        
+        # Inject fraudulent outlier rows with extreme PCA values on predictive features
+        if i in [1, 3, 4, 10, 14, 17]:
+            outlier_indices = random.sample(range(n_rows), k=random.randint(2, 4))
+            for idx in outlier_indices:
+                data[f"V{i}"][idx] = round(random.choice([-1.0, 1.0]) * random.uniform(4.0, 12.0), 6)
 
-    fraud = pool[pool["Class"] == 1]
-    legit = pool[pool["Class"] == 0]
+    # Generate realistic transaction amounts ($5 - $1200)
+    amounts = []
+    for _ in range(n_rows):
+        if random.random() < 0.8:
+            amounts.append(round(random.uniform(5.0, 150.0), 2))
+        else:
+            amounts.append(round(random.uniform(200.0, 1200.0), 2))
+    data["Amount"] = amounts
 
-    # Pick 3-5 fraud rows + 7-10 legit rows
-    n_fraud = random.randint(3, min(5, len(fraud)))
-    n_legit = random.randint(7, min(10, len(legit)))
-
-    sample = pd.concat([
-        fraud.sample(n_fraud),
-        legit.sample(n_legit),
-    ]).sample(frac=1)  # shuffle
-
-    # Drop the Class column — user uploads V1-V28 + Amount only
-    sample = sample.drop(columns=["Class"])
+    sample = pd.DataFrame(data)
 
     buf = io.StringIO()
     sample.to_csv(buf, index=False)

@@ -134,6 +134,7 @@ async function enterDashboard() {
     authScreen.classList.remove("active");
     dashScreen.classList.add("active");
 
+    loadModels();
     switchSection("predict");
 }
 
@@ -160,7 +161,7 @@ function switchSection(name) {
     $$(".section").forEach((s) => s.classList.toggle("active", s.id === `section-${name}`));
 
     if (name === "history") loadHistory();
-    if (name === "models")  loadModels();
+    if (name === "models" || name === "predict" || name === "metrics") loadModels();
     if (name === "metrics") loadMetrics();
 }
 
@@ -329,13 +330,14 @@ async function loadModels() {
                 </div>
             </div>`).join("");
 
-        const optionsHtml = `<option value="">Auto (A/B Test)</option>` + 
-            models.filter(m => m.is_active).map(m => `<option value="${m.version_tag}">${m.version_tag}</option>`).join("");
+        const predictOptionsHtml = `<option value="">Auto (A/B Test)</option>` + 
+            models.map(m => `<option value="${m.version_tag}">${m.version_tag}${m.is_active ? ' (Active)' : ''}</option>`).join("");
+        const metricsOptionsHtml = `<option value="">All Models</option>` + 
+            models.map(m => `<option value="${m.version_tag}">${m.version_tag}${m.is_active ? ' (Active)' : ''}</option>`).join("");
         const predictSelect = document.getElementById("predict-model-select");
         const metricsSelect = document.getElementById("metrics-model-select");
-        if (predictSelect && predictSelect.options.length <= 1) predictSelect.innerHTML = optionsHtml;
-        if (metricsSelect && metricsSelect.options.length <= 1) metricsSelect.innerHTML = `<option value="">All Models</option>` + 
-            models.filter(m => m.is_active).map(m => `<option value="${m.version_tag}">${m.version_tag}</option>`).join("");
+        if (predictSelect) predictSelect.innerHTML = predictOptionsHtml;
+        if (metricsSelect) metricsSelect.innerHTML = metricsOptionsHtml;
     } catch (err) {
         console.error("Failed to load models:", err);
     }

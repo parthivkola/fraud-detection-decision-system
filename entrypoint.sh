@@ -5,13 +5,15 @@ echo "==> Checking migration state..."
 
 # Check if alembic_version table exists (i.e., DB has been migrated before)
 ALEMBIC_TABLE_EXISTS=$(python3 - <<'EOF'
-import os, psycopg2, sys
+import os, sys
+from sqlalchemy import create_engine, text
 try:
-    conn = psycopg2.connect(os.environ["DATABASE_URL"])
-    cur = conn.cursor()
-    cur.execute("SELECT to_regclass('public.alembic_version')")
-    result = cur.fetchone()[0]
-    conn.close()
+    url = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/fraud_detection")
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    engine = create_engine(url)
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT 1 FROM alembic_version")).fetchone()
     print("yes" if result else "no")
 except Exception as e:
     print("no")

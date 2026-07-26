@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     METADATA_PATH: str = os.path.join("saved_models", "model_metadata.json")
 
     DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/fraud_detection"
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def fix_database_url(cls, v: str) -> str:
+        if isinstance(v, str) and v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql://", 1)
+        return v
 
     LOG_LEVEL: str = "INFO"
     LOG_DIR: str = "logs"

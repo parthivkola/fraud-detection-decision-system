@@ -39,7 +39,7 @@ export const App: React.FC = () => {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-app)' }}>
         <div style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}>
-          Initializing Aegis System Telemetry...
+          Loading Credit Card Fraud Detection System...
         </div>
       </div>
     );
@@ -70,7 +70,7 @@ export const App: React.FC = () => {
         fontFamily: 'var(--font-main)'
       }}>
         <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <span>Aegis Enterprise Decision System &bull; XGBoost Inference Engine v2.0</span>
+          <span>Credit Card Fraud Detection System &bull; XGBoost Inference Engine v2.0</span>
           <span style={{ fontFamily: 'var(--font-mono)' }}>Protected by JWT & BCrypt Security</span>
         </div>
       </footer>

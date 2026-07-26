@@ -34,7 +34,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, activeTab, setActiveTab, o
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#f4f4f5', letterSpacing: '-0.02em' }}>
-              Aegis
+              CC Fraud Detection
             </span>
             <span style={{ fontSize: '0.75rem', color: '#71717a', background: '#14161f', padding: '0.15rem 0.5rem', borderRadius: '4px', border: '1px solid #27272a', fontWeight: 500 }}>
               XGBoost Engine

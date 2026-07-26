@@ -1,4 +1,4 @@
-# Aegis — Enterprise Fraud Detection & AI Decision System
+# Credit Card Fraud Detection System
 
 A professional, production-grade **FastAPI + React 18 (Vite + TypeScript)** full-stack platform for real-time credit card fraud inference, powered by **XGBoost gradient boosted trees**. Features JWT authentication with role-based access control, dynamic ML model registry with weighted A/B testing, real-time system analytics, and multi-stage Docker deployment support.
 
@@ -77,7 +77,7 @@ Spin up the full stack (PostgreSQL database, FastAPI backend with automatic Alem
 ```bash
 docker compose up --build
 ```
-Visit **http://localhost:8000** in your browser to access the Aegis AI Portal. API documentation is available at **http://localhost:8000/docs**.
+Visit **http://localhost:8000** in your browser to access the dashboard. API documentation is available at **http://localhost:8000/docs**.
 
 ---
 
@@ -103,7 +103,7 @@ Visit **http://localhost:8000** in your browser to access the Aegis AI Portal. A
    ```bash
    uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
    ```
-   Visit **http://localhost:8000** in your browser to access the Aegis AI Portal. API documentation is available at **http://localhost:8000/docs**.
+   Visit **http://localhost:8000** in your browser to access the dashboard. API documentation is available at **http://localhost:8000/docs**.
 
 ### Running Tests
 

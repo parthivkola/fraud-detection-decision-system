@@ -87,10 +87,10 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <Shield size={24} color="#3b82f6" />
           </div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#f4f4f5', marginBottom: '0.375rem' }}>
-            Aegis
+            Credit Card Fraud Detection System
           </h2>
           <p style={{ color: '#71717a', fontSize: '0.875rem' }}>
-            Enterprise XGBoost Fraud Detection System
+            XGBoost-powered real-time fraud detection
           </p>
         </div>
 
@@ -155,7 +155,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <div style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.75rem', color: '#71717a' }}>
               <div>Default Admin Credentials</div>
               <div style={{ display: 'inline-flex', gap: '0.75rem', marginTop: '0.375rem', background: '#11131a', padding: '0.25rem 0.625rem', borderRadius: '4px', border: '1px solid #27272a', color: '#a1a1aa', fontFamily: 'var(--font-mono)' }}>
-                <span>user: admin</span><span>|</span><span>pass: ChangeMe123!</span>
+                <span>user: admin</span><span>|</span><span>pass: admin123</span>
               </div>
             </div>
           </form>

@@ -1,41 +1,74 @@
-import React, { useState, useEffect } from 'react';
-import { UploadCloud, FileSpreadsheet, Download, CheckCircle2, AlertTriangle, ShieldAlert, Cpu, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  UploadCloud, FileText, Download, CheckCircle2, AlertTriangle,
+  ShieldAlert, Cpu, RefreshCw, X, ChevronDown
+} from 'lucide-react';
 import { api, type ModelVersion, type PredictResponse } from '../api';
 
-export const PredictTab: React.FC = () => {
-  const [file, setFile] = useState<File | null>(null);
-  const [models, setModels] = useState<ModelVersion[]>([]);
-  const [selectedModel, setSelectedModel] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<PredictResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+/* ── Helpers ──────────────────────────────────────────────────────────────── */
+const riskColors: Record<string, { text: string; bar: string }> = {
+  LOW:      { text: '#16a34a', bar: '#16a34a' },
+  MEDIUM:   { text: '#d97706', bar: '#d97706' },
+  HIGH:     { text: '#c2410c', bar: '#ea580c' },
+  CRITICAL: { text: '#dc2626', bar: '#dc2626' },
+};
 
-  useEffect(() => {
-    loadModels();
-  }, []);
+const decisionColors: Record<string, string> = {
+  approve: '#16a34a',
+  review:  '#d97706',
+  block:   '#dc2626',
+};
+
+function ProbBar({ value, isFraud }: { value: number; isFraud: boolean }) {
+  const pct = Math.min(100, value * 100);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ flex: 1, maxWidth: 64, height: 4, background: '#f5f5f5', borderRadius: 99 }}>
+        <div style={{ width: `${pct}%`, height: '100%', borderRadius: 99, background: isFraud ? '#dc2626' : '#16a34a', transition: 'width 0.4s ease' }} />
+      </div>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: isFraud ? '#dc2626' : '#171717', minWidth: 44, textAlign: 'right' }}>
+        {pct.toFixed(1)}%
+      </span>
+    </div>
+  );
+}
+
+/* ── Component ────────────────────────────────────────────────────────────── */
+export const PredictTab: React.FC = () => {
+  const [file, setFile]             = useState<File | null>(null);
+  const [models, setModels]         = useState<ModelVersion[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>('');
+  const [loading, setLoading]       = useState(false);
+  const [result, setResult]         = useState<PredictResponse | null>(null);
+  const [error, setError]           = useState<string | null>(null);
+  const [dragging, setDragging]     = useState(false);
+
+  useEffect(() => { loadModels(); }, []);
 
   const loadModels = async () => {
-    try {
-      const list = await api.getModels();
-      setModels(list);
-    } catch (e) {
-      console.error(e);
-    }
+    try { setModels(await api.getModels()); } catch { /* silent */ }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-      setError(null);
+  const handleFileChange = (f: File | null) => {
+    if (!f) return;
+    if (!f.name.toLowerCase().endsWith('.csv')) {
+      setError('Please upload a .csv file.');
+      return;
     }
+    setFile(f);
+    setError(null);
   };
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const f = e.dataTransfer.files[0];
+    if (f) handleFileChange(f);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) {
-      setError('Please select a CSV file first');
-      return;
-    }
+    if (!file) { setError('Please select a CSV file first.'); return; }
     setLoading(true);
     setError(null);
     setResult(null);
@@ -43,250 +76,243 @@ export const PredictTab: React.FC = () => {
       const res = await api.predict(file, selectedModel || undefined);
       setResult(res);
     } catch (err: any) {
-      setError(err.message || 'Prediction failed');
+      setError(err.message || 'Prediction failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSampleCsv = async () => {
-    const res = await fetch(api.getSampleCsvUrl());
-    const text = await res.text();
-    // data: URI approach - guaranteed filename, no Blob URL race condition
-    const dataUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(text);
-    const a = document.createElement('a');
-    a.href = dataUri;
-    a.download = 'sample_transactions.csv';
-    a.click();
+    try {
+      const res = await fetch(api.getSampleCsvUrl());
+      const text = await res.text();
+      const a = document.createElement('a');
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(text);
+      a.download = 'sample_transactions.csv';
+      a.click();
+    } catch { /* silent */ }
   };
 
+  const fraudCount = result?.predictions.filter(r => r.is_fraud).length ?? 0;
+  const totalCount = result?.predictions.length ?? 0;
+  const safeCount  = totalCount - fraudCount;
+
   return (
-    <div style={{ padding: '1.5rem 0' }}>
-      <div className="grid-2" style={{ alignItems: 'start', marginBottom: '2rem' }}>
-        {/* Upload Card */}
+    <div style={{ padding: '28px 0' }}>
+      <div className="grid-2" style={{ alignItems: 'start', marginBottom: 24 }}>
+
+        {/* ── Upload Card ──────────────────────────────────────────────── */}
         <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
-              <h3 style={{ fontSize: '1.1rem', marginBottom: '0.2rem', color: '#f4f4f5' }}>Batch Fraud Inference</h3>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>Upload transaction CSVs for XGBoost scoring</p>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: '#171717', marginBottom: 2 }}>Batch Inference</h2>
+              <p style={{ fontSize: 12, color: '#a3a3a3' }}>Upload a CSV to score transactions</p>
             </div>
-            <button
-              type="button"
-              onClick={handleSampleCsv}
-              className="btn btn-secondary"
-              style={{ fontSize: '0.8125rem', padding: '0.4rem 0.875rem' }}
-            >
-              <Download size={14} />
-              <span>Sample CSV</span>
+            <button onClick={handleSampleCsv} className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>
+              <Download size={12} /><span>Sample CSV</span>
             </button>
           </div>
 
           <form onSubmit={handleSubmit}>
-            {/* Model Selector */}
-            <div className="input-group" style={{ marginBottom: '1.25rem' }}>
-              <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Cpu size={14} color="var(--text-secondary)" />
-                <span>Model Routing</span>
+            {/* Model selector */}
+            <div className="input-group">
+              <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Cpu size={12} /><span>Model routing</span>
               </label>
-              <select
-                className="input-field"
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                style={{ cursor: 'pointer' }}
-              >
-                <option value="">-- Weighted A/B Pool (Default) --</option>
-                {models.map((m) => (
-                  <option key={m.id} value={m.version_tag}>
-                    {m.version_tag} {m.is_active ? `(Active | Weight: ${(m.ab_weight * 100).toFixed(0)}%)` : '(Inactive)'}
-                  </option>
-                ))}
-              </select>
+              <div style={{ position: 'relative' }}>
+                <select
+                  className="input-field"
+                  value={selectedModel}
+                  onChange={e => setSelectedModel(e.target.value)}
+                >
+                  <option value="">Weighted A/B pool (default)</option>
+                  {models.map(m => (
+                    <option key={m.id} value={m.version_tag}>
+                      {m.version_tag}{m.is_active ? ` · Active · ${(m.ab_weight * 100).toFixed(0)}% weight` : ' · Inactive'}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={13} style={{ position: 'absolute', right: 10, top: 10, color: '#a3a3a3', pointerEvents: 'none' }} />
+              </div>
             </div>
 
-            {/* Drag Drop Area */}
+            {/* Drop zone */}
             <div
-              style={{
-                border: '1px dashed var(--border-hover)',
-                borderRadius: 'var(--radius-md)',
-                padding: '2rem 1rem',
-                textAlign: 'center',
-                background: 'var(--bg-input)',
-                cursor: 'pointer',
-                marginBottom: '1.25rem',
-                transition: 'all 0.15s ease'
-              }}
+              onDragOver={e => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
               onClick={() => document.getElementById('csv-upload')?.click()}
+              style={{
+                border: `1.5px dashed ${dragging ? '#171717' : file ? '#16a34a' : '#d4d4d4'}`,
+                borderRadius: 10,
+                padding: '28px 20px',
+                textAlign: 'center',
+                background: dragging ? '#fafafa' : file ? '#f0fdf4' : '#fafafa',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                marginBottom: 16,
+                position: 'relative',
+              }}
             >
-              <input
-                id="csv-upload"
-                type="file"
-                accept=".csv"
-                onChange={handleFileChange}
-                style={{ display: 'none' }}
-              />
-              <div style={{ display: 'inline-flex', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-elevated)', marginBottom: '0.75rem', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>
-                {file ? <FileSpreadsheet size={24} /> : <UploadCloud size={24} />}
-              </div>
-              <h4 style={{ fontSize: '0.9rem', marginBottom: '0.25rem', color: '#f4f4f5' }}>
-                {file ? file.name : 'Select or drop CSV file'}
-              </h4>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {file ? `${(file.size / 1024).toFixed(1)} KB selected` : 'Standard PCA features V1-V28 + Amount'}
-              </p>
-            </div>
+              <input id="csv-upload" type="file" accept=".csv" onChange={e => handleFileChange(e.target.files?.[0] ?? null)} style={{ display: 'none' }} />
 
-            {error && (
-              <div style={{
-                background: 'var(--status-danger-bg)',
-                border: '1px solid rgba(239, 68, 68, 0.2)',
-                color: 'var(--status-danger)',
-                padding: '0.625rem 0.875rem',
-                borderRadius: 'var(--radius-md)',
-                marginBottom: '1rem',
-                fontSize: '0.8125rem'
-              }}>
-                {error}
+              <div style={{ display: 'inline-flex', padding: 10, borderRadius: 8, background: file ? '#dcfce7' : '#f5f5f5', border: `1px solid ${file ? '#bbf7d0' : '#e5e5e5'}`, marginBottom: 10, color: file ? '#16a34a' : '#a3a3a3' }}>
+                {file ? <FileText size={20} /> : <UploadCloud size={20} />}
               </div>
-            )}
 
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{ width: '100%', padding: '0.625rem', justifyContent: 'center' }}
-              disabled={loading || !file}
-            >
-              {loading ? (
+              {file ? (
                 <>
-                  <RefreshCw size={16} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
-                  <span>Processing Batch...</span>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#171717', marginBottom: 2 }}>{file.name}</div>
+                  <div style={{ fontSize: 12, color: '#737373' }}>{(file.size / 1024).toFixed(1)} KB · Click to change</div>
                 </>
               ) : (
                 <>
-                  <ShieldAlert size={16} />
-                  <span>Run Inference</span>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: '#525252', marginBottom: 2 }}>Drop CSV here or click to browse</div>
+                  <div style={{ fontSize: 12, color: '#a3a3a3' }}>Features: V1–V28 + Amount column</div>
                 </>
+              )}
+
+              {file && (
+                <button
+                  type="button"
+                  onClick={e => { e.stopPropagation(); setFile(null); setResult(null); setError(null); }}
+                  style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#a3a3a3', padding: 2, display: 'flex', borderRadius: 4 }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div className="alert alert-error">
+                <AlertTriangle size={13} /><span>{error}</span>
+              </div>
+            )}
+
+            {/* Submit */}
+            <button
+              type="submit"
+              className="btn btn-primary btn-lg"
+              style={{ width: '100%', justifyContent: 'center' }}
+              disabled={loading || !file}
+            >
+              {loading ? (
+                <><RefreshCw size={14} className="spin" style={{ animation: 'spin 0.9s linear infinite' }} /><span>Scoring transactions…</span></>
+              ) : (
+                <><ShieldAlert size={14} /><span>Run Inference</span></>
               )}
             </button>
           </form>
         </div>
 
-        {/* Instructions / Overview Card */}
-        <div className="card">
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '0.75rem', color: '#f4f4f5' }}>Inference Rules & Routing</h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: '1.5' }}>
-            Transactions are evaluated using XGBoost gradient boosted decision trees. Features are scaled via trained joblib artifact pipelines and checked against decision thresholds.
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', background: 'var(--bg-input)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div className="badge badge-low">LOW</div>
-              <div>
-                <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#f4f4f5' }}>Automated Approval</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Probability below decision boundary. Settled immediately without analyst queue routing.</div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', background: 'var(--bg-input)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div className="badge badge-medium">MEDIUM</div>
-              <div>
-                <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#f4f4f5' }}>Analyst Review</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Anomalous signature detected. Routed to fraud analysts for verification before clearing.</div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', background: 'var(--bg-input)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div className="badge badge-critical">CRITICAL</div>
-              <div>
-                <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#f4f4f5' }}>Immediate Block</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>High-confidence fraud pattern. Transaction blocked and token frozen.</div>
-              </div>
-            </div>
+        {/* ── Decision Rules Card ───────────────────────────────────────── */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#171717', marginBottom: 2 }}>Decision Rules</h2>
+            <p style={{ fontSize: 12, color: '#a3a3a3' }}>How each transaction is classified and routed</p>
           </div>
+
+          {[
+            {
+              badge: 'LOW', badgeClass: 'badge-low', label: 'Auto Approve',
+              desc: 'Fraud probability below decision threshold. Transaction cleared immediately without analyst review.',
+              icon: <CheckCircle2 size={14} color="#16a34a" />,
+            },
+            {
+              badge: 'MEDIUM', badgeClass: 'badge-medium', label: 'Analyst Review',
+              desc: 'Anomalous signal detected. Routed to a fraud analyst queue before settlement.',
+              icon: <AlertTriangle size={14} color="#d97706" />,
+            },
+            {
+              badge: 'HIGH', badgeClass: 'badge-high', label: 'Elevated Review',
+              desc: 'Strong fraud indicators present. Priority queue routing with manual verification required.',
+              icon: <AlertTriangle size={14} color="#c2410c" />,
+            },
+            {
+              badge: 'CRITICAL', badgeClass: 'badge-critical', label: 'Immediate Block',
+              desc: 'High-confidence fraud pattern. Transaction blocked and account token frozen immediately.',
+              icon: <ShieldAlert size={14} color="#dc2626" />,
+            },
+          ].map(item => (
+            <div key={item.badge} style={{ display: 'flex', gap: 12, padding: '12px', borderRadius: 8, border: '1px solid #e5e5e5', background: '#fafafa' }}>
+              <div style={{ paddingTop: 1, flexShrink: 0 }}>{item.icon}</div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                  <span className={`badge ${item.badgeClass}`}>{item.badge}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#171717' }}>{item.label}</span>
+                </div>
+                <p style={{ fontSize: 12, color: '#737373', lineHeight: 1.5 }}>{item.desc}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Results Section */}
+      {/* ── Results ───────────────────────────────────────────────────────── */}
       {result && (
-        <div>
-          {/* Summary KPIs */}
-          <div className="grid-4" style={{ marginBottom: '1.25rem' }}>
-            <div className="card" style={{ padding: '1rem' }}>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Batch ID</span>
-              <div style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f4f4f5', marginTop: '0.2rem' }}>#{result.batch_id}</div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--brand-primary)' }}>Model: {result.summary.model_version || 'A/B Pool'}</span>
-            </div>
-
-            <div className="card" style={{ padding: '1rem' }}>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Transactions Scored</span>
-              <div style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f4f4f5', marginTop: '0.2rem' }}>{result.summary.total_transactions}</div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Latency: &lt;50ms</span>
-            </div>
-
-            <div className="card" style={{ padding: '1rem', borderLeft: '3px solid var(--status-danger)' }}>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Flagged Fraud</span>
-              <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--status-danger)', marginTop: '0.2rem' }}>{result.summary.flagged_fraud}</div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--status-danger)' }}>Rate: {(result.summary.fraud_rate * 100).toFixed(2)}%</span>
-            </div>
-
-            <div className="card" style={{ padding: '1rem', borderLeft: '3px solid var(--status-success)' }}>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Approved</span>
-              <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--status-success)', marginTop: '0.2rem' }}>{result.summary.flagged_legitimate}</div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--status-success)' }}>Threshold: {result.summary.threshold_used}</span>
-            </div>
+        <div className="fade-in">
+          {/* KPI row */}
+          <div className="grid-4" style={{ marginBottom: 20 }}>
+            {[
+              { label: 'Batch ID', value: `#${result.batch_id}`, sub: `Model: ${result.summary?.model_version || 'A/B Pool'}`, color: '#171717' },
+              { label: 'Scored', value: totalCount, sub: 'Transactions', color: '#171717' },
+              { label: 'Flagged', value: fraudCount, sub: `${totalCount > 0 ? ((fraudCount/totalCount)*100).toFixed(1) : '0.0'}% fraud rate`, color: '#dc2626', accent: '#dc2626' },
+              { label: 'Approved', value: safeCount, sub: `Threshold: ${result.summary?.threshold_used?.toFixed(3) ?? '—'}`, color: '#16a34a', accent: '#16a34a' },
+            ].map(kpi => (
+              <div key={kpi.label} className="card" style={{ padding: '16px 20px', borderLeft: kpi.accent ? `3px solid ${kpi.accent}` : undefined }}>
+                <div className="stat-label">{kpi.label}</div>
+                <div className="stat-value" style={{ color: kpi.color, marginTop: 6 }}>{kpi.value}</div>
+                <div className="stat-sub">{kpi.sub}</div>
+              </div>
+            ))}
           </div>
 
-          {/* Table */}
-          <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-            <div style={{ padding: '1rem 1.25rem', background: 'var(--bg-input)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ fontSize: '0.95rem', margin: 0, color: '#f4f4f5' }}>Scoring Results</h3>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Showing all {result.predictions.length} rows</span>
+          {/* Results table */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid #e5e5e5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h3 style={{ fontSize: 14, fontWeight: 600, color: '#171717' }}>Scoring Results</h3>
+                <p style={{ fontSize: 12, color: '#a3a3a3' }}>{result.predictions.length} transactions scored</p>
+              </div>
+              <div style={{ display: 'flex', gap: 8, fontSize: 12 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#16a34a' }}><CheckCircle2 size={12} /> {safeCount} approved</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#dc2626' }}><AlertTriangle size={12} /> {fraudCount} flagged</span>
+              </div>
             </div>
 
-            <div className="table-container" style={{ border: 'none', maxHeight: '450px', overflowY: 'auto' }}>
+            <div style={{ maxHeight: 460, overflowY: 'auto' }}>
               <table className="table">
                 <thead>
                   <tr>
                     <th>Row</th>
                     <th>Fraud Probability</th>
-                    <th>Severity Level</th>
+                    <th>Risk Level</th>
                     <th>Decision</th>
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {result.predictions.map((row) => (
+                  {result.predictions.map(row => (
                     <tr key={row.row_index}>
-                      <td style={{ fontWeight: 500, color: '#f4f4f5', fontFamily: 'var(--font-mono)' }}>{row.row_index + 1}</td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: '#171717' }}>{row.row_index + 1}</td>
+                      <td><ProbBar value={row.fraud_probability} isFraud={row.is_fraud} /></td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                          <div style={{ width: '60px', height: '4px', background: 'var(--bg-input)', borderRadius: '2px', overflow: 'hidden' }}>
-                            <div style={{
-                              width: `${Math.min(100, row.fraud_probability * 100)}%`,
-                              height: '100%',
-                              background: row.is_fraud ? 'var(--status-danger)' : 'var(--status-success)'
-                            }} />
-                          </div>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: row.is_fraud ? 'var(--status-danger)' : '#f4f4f5' }}>
-                            {(row.fraud_probability * 100).toFixed(2)}%
-                          </span>
-                        </div>
+                        <span className={`badge badge-${row.risk_level.toLowerCase()}`}>{row.risk_level}</span>
                       </td>
                       <td>
-                        <span className={`badge badge-${row.risk_level.toLowerCase()}`}>
-                          {row.risk_level}
+                        <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: decisionColors[row.decision] ?? '#525252' }}>
+                          {row.decision}
                         </span>
-                      </td>
-                      <td style={{ textTransform: 'uppercase', fontWeight: 600, fontSize: '0.75rem', color: row.decision === 'block' ? 'var(--status-danger)' : row.decision === 'review' ? 'var(--status-warning)' : 'var(--status-success)' }}>
-                        {row.decision}
                       </td>
                       <td>
                         {row.is_fraud ? (
-                          <span style={{ color: 'var(--status-danger)', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8125rem' }}>
-                            <AlertTriangle size={14} /> Flagged
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#dc2626', fontWeight: 500 }}>
+                            <AlertTriangle size={12} />Flagged
                           </span>
                         ) : (
-                          <span style={{ color: 'var(--status-success)', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8125rem' }}>
-                            <CheckCircle2 size={14} /> Approved
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#16a34a', fontWeight: 500 }}>
+                            <CheckCircle2 size={12} />Approved
                           </span>
                         )}
                       </td>
